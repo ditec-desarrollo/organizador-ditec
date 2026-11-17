@@ -1,0 +1,641 @@
+/* =====================================================================
+   Organizador — estilos propios de la app.
+   Solo usa los tokens --cd-* de ciudadDigital.css: ningún color escrito a mano,
+   así todo responde al modo claro / oscuro.
+   ===================================================================== */
+
+/* ---------- Página ---------- */
+.org-pagina {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
+}
+.org-pagina--ancha {
+  max-width: 1600px;
+}
+
+@media print {
+  .ocultarAlImprimir {
+    display: none !important;
+  }
+}
+
+/* ---------- Colores de estado (chips, puntos, bordes) ----------
+   Cada modificador define --org-color (texto / acento) y --org-fondo. */
+.org-color--gris {
+  --org-color: var(--cd-text-2);
+  --org-fondo: var(--cd-hover);
+}
+.org-color--azul {
+  --org-color: var(--cd-accent-fuerte);
+  --org-fondo: var(--cd-accent-suave);
+}
+.org-color--violeta {
+  --org-color: var(--cd-violeta);
+  --org-fondo: var(--cd-violeta-bg);
+}
+.org-color--verde {
+  --org-color: var(--cd-verde);
+  --org-fondo: var(--cd-verde-bg);
+}
+.org-color--naranja {
+  --org-color: var(--cd-naranja);
+  --org-fondo: var(--cd-naranja-bg);
+}
+.org-color--rojo {
+  --org-color: var(--cd-peligro);
+  --org-fondo: var(--cd-peligro-bg);
+}
+
+.org-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--org-fondo);
+  color: var(--org-color);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.org-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--org-color);
+}
+.org-chip--sin-punto::before {
+  display: none;
+}
+
+/* ---------- Barra de avance ---------- */
+.org-avance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.org-avance__pista {
+  flex: 1;
+  height: 6px;
+  min-width: 40px;
+  border-radius: 999px;
+  background: var(--cd-hover);
+  overflow: hidden;
+}
+.org-avance__relleno {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cd-accent);
+  transition: width 250ms var(--cd-ease);
+}
+.org-avance__relleno--completo {
+  background: var(--cd-verde);
+}
+.org-avance__valor {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cd-text-2);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: right;
+}
+
+/* ---------- Indicadores del panel ---------- */
+.org-indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.org-indicador {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+  cursor: pointer;
+  transition: transform 150ms var(--cd-ease), box-shadow 150ms var(--cd-ease), border-color 150ms var(--cd-ease);
+}
+.org-indicador:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--cd-sombra-md);
+  border-color: var(--cd-accent);
+}
+.org-indicador__icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 8px;
+  border-radius: var(--cd-radio-sm);
+  background: var(--org-fondo);
+  color: var(--org-color);
+}
+.org-indicador__icono .MuiSvgIcon-root {
+  font-size: 20px;
+}
+.org-indicador__valor {
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--cd-text);
+  font-variant-numeric: tabular-nums;
+}
+.org-indicador__texto {
+  font-size: 0.8rem;
+  color: var(--cd-text-2);
+}
+
+/* ---------- Bloques (tarjeta con título) ---------- */
+.org-bloque {
+  padding: 18px 20px;
+  min-width: 0;
+}
+.org-bloque__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.org-bloque__titulo {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--cd-text);
+}
+.org-grilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* ---------- Listas simples (actividad, notificaciones, vencimientos) ---------- */
+.org-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.org-lista__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--cd-border);
+}
+.org-lista__item:first-child {
+  border-top: 0;
+}
+.org-lista__item--accion {
+  width: 100%;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 10px 8px;
+  border-radius: 0;
+  transition: background-color 150ms var(--cd-ease);
+}
+.org-lista__item--accion:hover {
+  background: var(--cd-hover);
+}
+.org-lista__cuerpo {
+  flex: 1;
+  min-width: 0;
+}
+.org-lista__texto {
+  display: block;
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--cd-text);
+  overflow-wrap: anywhere;
+}
+.org-lista__meta {
+  display: block;
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: var(--cd-text-3);
+}
+.org-lista__item--no-leida .org-lista__texto {
+  font-weight: 600;
+}
+.org-punto {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: var(--cd-accent);
+}
+.org-punto--apagado {
+  background: transparent;
+}
+
+/* ---------- Estado vacío / error ---------- */
+.org-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 36px 16px;
+  text-align: center;
+  color: var(--cd-text-2);
+}
+.org-vacio .MuiSvgIcon-root {
+  font-size: 36px;
+  color: var(--cd-text-3);
+}
+.org-vacio__titulo {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--cd-text);
+}
+.org-vacio__texto {
+  margin: 0;
+  font-size: 0.85rem;
+  max-width: 46ch;
+}
+
+/* ---------- Barra de filtros ---------- */
+.org-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.org-filtros > * {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.org-filtros__buscar {
+  flex: 2 1 220px;
+}
+.org-filtros__fijo {
+  flex: 0 0 auto;
+}
+/* Botón que despliega los filtros: solo existe en mobile.
+   Lleva .org-filtros delante para ganarle al display del Button de MUI. */
+.org-filtros .org-filtros__alternar {
+  display: none;
+}
+
+/* ---------- Tarjetas de proyecto ---------- */
+.org-proyectos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+.org-proyecto {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+  cursor: pointer;
+  transition: transform 150ms var(--cd-ease), box-shadow 150ms var(--cd-ease), border-color 150ms var(--cd-ease);
+}
+.org-proyecto:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--cd-sombra-md);
+  border-color: var(--cd-accent);
+}
+.org-proyecto__nombre {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--cd-text);
+  overflow-wrap: anywhere;
+}
+.org-proyecto__descripcion {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--cd-text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.org-proyecto__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: auto;
+  font-size: 0.76rem;
+  color: var(--cd-text-2);
+}
+.org-dato {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.org-dato .MuiSvgIcon-root {
+  font-size: 15px;
+}
+.org-dato--alerta {
+  color: var(--cd-peligro);
+  font-weight: 600;
+}
+.org-dato--aviso {
+  color: var(--cd-naranja);
+  font-weight: 600;
+}
+
+/* ---------- Tablero Kanban ---------- */
+.org-tablero {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(232px, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  align-items: start;
+}
+.org-columna {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--cd-superficie-alt);
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radio-md);
+}
+.org-columna__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 8px;
+}
+.org-columna__marca {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--org-color);
+}
+.org-columna__titulo {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cd-text-2);
+}
+.org-columna__cantidad {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cd-text-3);
+  font-variant-numeric: tabular-nums;
+}
+.org-columna__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 96px;
+  padding: 4px 8px 10px;
+  border-radius: 0 0 var(--cd-radio-md) var(--cd-radio-md);
+  transition: background-color 150ms var(--cd-ease);
+}
+.org-columna__lista--sobre {
+  background: var(--cd-accent-suave);
+}
+.org-columna__vacia {
+  margin: 0;
+  padding: 18px 8px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--cd-text-3);
+}
+
+.org-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--cd-surface);
+  border: 1px solid var(--cd-border);
+  border-left: 3px solid var(--org-color);
+  border-radius: var(--cd-radio-sm);
+  box-shadow: var(--cd-sombra-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: box-shadow 150ms var(--cd-ease), border-color 150ms var(--cd-ease);
+}
+.org-tarjeta:hover,
+.org-tarjeta:focus-visible {
+  box-shadow: var(--cd-sombra-md);
+  outline: none;
+}
+.org-tarjeta--arrastrando {
+  box-shadow: var(--cd-sombra-md);
+  border-color: var(--cd-accent);
+}
+.org-tarjeta--fija {
+  cursor: default;
+}
+.org-tarjeta__titulo {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--cd-text);
+  overflow-wrap: anywhere;
+}
+.org-tarjeta__proyecto {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--cd-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.org-tarjeta__fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.74rem;
+  color: var(--cd-text-2);
+}
+.org-tarjeta__responsable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.org-tarjeta__responsable span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Detalle de tarea ---------- */
+.org-ficha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+.org-ficha dt {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cd-text-3);
+}
+.org-ficha dd {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  color: var(--cd-text);
+  overflow-wrap: anywhere;
+}
+.org-texto-largo {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--cd-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.org-seccion {
+  margin: 0 0 8px;
+  padding-left: 12px;
+  border-left: 4px solid var(--cd-accent);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--cd-text);
+}
+
+/* Historial: línea de tiempo */
+.org-historial {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--cd-border);
+}
+.org-historial__item {
+  position: relative;
+  padding: 0 0 16px 14px;
+}
+.org-historial__item::before {
+  content: "";
+  position: absolute;
+  left: -21px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--cd-surface);
+  background: var(--org-color, var(--cd-accent));
+}
+.org-historial__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 0.8rem;
+  color: var(--cd-text-2);
+}
+.org-historial__cabecera strong {
+  color: var(--cd-text);
+  font-weight: 600;
+}
+.org-historial__cambio {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: var(--cd-text-2);
+}
+.org-comentario {
+  padding: 10px 12px;
+  margin-top: 6px;
+  border-radius: var(--cd-radio-sm);
+  background: var(--cd-superficie-alt);
+  border: 1px solid var(--cd-border);
+}
+
+/* ---------- Tabla: fila clickeable y celdas compactas ---------- */
+.org-fila--accion {
+  cursor: pointer;
+}
+.org-celda-principal {
+  font-weight: 600;
+  color: var(--cd-text);
+}
+.org-celda-secundaria {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--cd-text-3);
+}
+/* Con .org-ficha delante para ganarle al color de los datos de la ficha. */
+.org-vencida,
+.org-ficha .org-vencida {
+  color: var(--cd-peligro);
+  font-weight: 600;
+}
+.org-proxima,
+.org-ficha .org-proxima {
+  color: var(--cd-naranja);
+  font-weight: 600;
+}
+
+/* ---------- Campana de notificaciones ---------- */
+.org-notificaciones {
+  width: min(380px, calc(100vw - 32px));
+}
+.org-notificaciones__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--cd-text);
+}
+.org-notificaciones__lista {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 600px) {
+  .org-tablero {
+    grid-auto-columns: 84vw;
+  }
+  .org-bloque {
+    padding: 16px;
+  }
+  .org-filtros > * {
+    flex-basis: 100%;
+  }
+  /* En el celular los filtros arrancan plegados: queda la búsqueda y el botón "Filtros". */
+  .org-filtros .org-filtros__alternar {
+    display: inline-flex;
+  }
+  .org-filtros--plegable:not(.org-filtros--abiertos) > :not(.org-filtros__siempre) {
+    display: none;
+  }
+}

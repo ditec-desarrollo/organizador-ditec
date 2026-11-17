@@ -1,0 +1,31 @@
+{
+  "name": "organizador-ditec-back",
+  "version": "1.0.0",
+  "description": "API del Organizador: gestión de proyectos y tareas de DITEC",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "migrar": "node migrations/migrar.js",
+    "migrar:estado": "node migrations/migrar.js --estado",
+    "usuario:crear": "node scripts/crearUsuario.js",
+    "test": "node --test",
+    "test:integracion": "node scripts/pruebaIntegracion.js"
+  },
+  "keywords": [],
+  "author": "Dirección de Innovación Tecnológica - Municipalidad de San Miguel de Tucumán",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.1",
+    "mysql2": "^3.16.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}
