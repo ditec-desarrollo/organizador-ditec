@@ -421,6 +421,18 @@
 .org-columna__lista--sobre {
   background: var(--cd-accent-suave);
 }
+.org-columna__nota {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px 8px;
+  margin: 0;
+  padding: 6px 8px 8px 14px;
+  border-top: 1px solid var(--cd-border);
+  font-size: 0.74rem;
+  color: var(--cd-text-3);
+}
 .org-columna__vacia {
   margin: 0;
   padding: 18px 8px;

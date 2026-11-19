@@ -70,7 +70,9 @@ export const adjuntarResponsables = async (tareas, connection) => {
   return tareas.map((tarea) => ({ ...tarea, responsables: porTarea.get(tarea.id_tarea) }));
 };
 
-export const listar = async (usuario, filtros, diasProximas) => {
+// `dias`: { proximas, finalizadas } -> cuántos días cuentan como "próxima a vencer" y cuántos
+// días sigue en el tablero una tarea finalizada (los dos salen del .env).
+export const listar = async (usuario, filtros, dias = {}) => {
   const visibles = filtroProyectosVisibles(usuario, "t");
   const condiciones = ["t.habilita = 1", "pr.habilita = 1", visibles.sql];
   const params = [...visibles.params];
@@ -93,17 +95,29 @@ export const listar = async (usuario, filtros, diasProximas) => {
   if (filtros.vence_hasta) agregar("t.fecha_vencimiento <= ?", filtros.vence_hasta);
   if (filtros.buscar) agregar("(t.titulo LIKE ? OR pr.nombre_proyecto LIKE ?)", `%${filtros.buscar}%`, `%${filtros.buscar}%`);
 
+  // Tablero: las finalizadas hace más de N días dejan de mostrarse (siguen en el historial).
+  // No cambia nada en la tarea: es solo qué se trae.
+  if (filtros.tablero) {
+    agregar("(et.es_final = 0 OR t.fecha_finalizacion IS NULL OR t.fecha_finalizacion >= DATE_SUB(CURDATE(), INTERVAL ? DAY))", dias.finalizadas ?? 7);
+  }
+  // Historial: solo finalizadas, opcionalmente por rango de fecha de finalización.
+  if (filtros.solo_finalizadas) condiciones.push("et.es_final = 1");
+  if (filtros.finalizada_desde) agregar("t.fecha_finalizacion >= ?", filtros.finalizada_desde);
+  if (filtros.finalizada_hasta) agregar("t.fecha_finalizacion < DATE_ADD(?, INTERVAL 1 DAY)", filtros.finalizada_hasta);
+
   if (filtros.vencimiento === "vencidas") {
     condiciones.push("et.es_final = 0 AND t.fecha_vencimiento < CURDATE()");
   } else if (filtros.vencimiento === "proximas") {
-    agregar("et.es_final = 0 AND t.fecha_vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)", diasProximas);
+    agregar("et.es_final = 0 AND t.fecha_vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)", dias.proximas ?? 2);
   }
 
   // El orden sale de una lista fija, nunca del texto que manda el cliente.
-  const orden =
-    filtros.ordenar === "vencimiento"
-      ? "t.fecha_vencimiento IS NULL, t.fecha_vencimiento, pri.orden DESC, t.id_tarea"
-      : "et.orden, t.orden, t.id_tarea";
+  const ORDENES = {
+    vencimiento: "t.fecha_vencimiento IS NULL, t.fecha_vencimiento, pri.orden DESC, t.id_tarea",
+    finalizacion: "t.fecha_finalizacion DESC, t.id_tarea DESC",
+    tablero: "et.orden, t.orden, t.id_tarea",
+  };
+  const orden = ORDENES[filtros.ordenar] ?? ORDENES.tablero;
 
   const tareas = await consultar(
     `${SELECT_TAREA}

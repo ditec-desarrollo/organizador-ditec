@@ -94,7 +94,8 @@ front/src/
 - **Diseño.** Estilo "Ciudad Digital" del repo UX-UI. `theme/`, `styles/ciudadDigital.css`, `common/` y `components/Esqueletos/` son las plantillas de ese repo; lo único adaptado es `marca.js` (marca y menú) y una prop `acciones` en `NavBar.jsx` para la campana. Los estilos propios están en `styles/organizador.css` y solo usan los tokens `--cd-*`, así que todo responde al modo claro y oscuro.
 - **Datos.** Cada pantalla pide sus datos con `useConsulta`, que resuelve carga, error y recarga. Cuando algo cambia (se movió una tarjeta, se guardó un formulario) se llama a `refrescar()` y todas las consultas en pantalla se vuelven a pedir.
 - **Detalle de tarea.** Se abre con `?tarea=<id>` en la URL, así funciona desde cualquier pantalla y el link se puede compartir.
-- **Tablero.** `@hello-pangea/dnd`. Al soltar una tarjeta se actualiza la pantalla al instante y se guarda en la base; si el back lo rechaza, la tarjeta vuelve a su lugar y se muestra el motivo.
+- **Tablero e historial.** El tablero pide las tareas con `tablero=1`: el back no devuelve las finalizadas hace más de `DIAS_FINALIZADAS_EN_TABLERO` días (7 por defecto). Es solo un filtro: la tarea no cambia de estado ni se archiva, y se sigue viendo en la lista de Tareas y en la pantalla Historial, que muestra todas las finalizadas con filtros por proyecto, persona y mes.
+- **Arrastrar y soltar.** `@hello-pangea/dnd`. Al soltar una tarjeta se actualiza la pantalla al instante y se guarda en la base; si el back lo rechaza, la tarjeta vuelve a su lugar y se muestra el motivo.
 - **Validación.** Los formularios validan antes de enviar con las mismas reglas que el back, y muestran en cada campo los errores que el back devuelva.
 
 ## Decisiones

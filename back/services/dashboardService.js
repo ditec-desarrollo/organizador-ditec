@@ -17,8 +17,8 @@ export const obtener = async (usuario) => {
     dashboardRepository.resumenTareas(usuario, { soloMias, diasProximas }),
     dashboardRepository.contarProyectosActivos(usuario),
     proyectosRepository.listar(usuario, {}),
-    tareasRepository.listar(usuario, { ...filtroResponsable, vencimiento: "vencidas", ordenar: "vencimiento", limite: 10 }, diasProximas),
-    tareasRepository.listar(usuario, { ...filtroResponsable, vencimiento: "proximas", ordenar: "vencimiento", limite: 10 }, diasProximas),
+    tareasRepository.listar(usuario, { ...filtroResponsable, vencimiento: "vencidas", ordenar: "vencimiento", limite: 10 }, { proximas: diasProximas }),
+    tareasRepository.listar(usuario, { ...filtroResponsable, vencimiento: "proximas", ordenar: "vencimiento", limite: 10 }, { proximas: diasProximas }),
     // El colaborador ve las últimas novedades de sus proyectos; el gestor, las de todo lo que gestiona.
     actividadRepository.listar(usuario, { cantidad: 12 }),
   ]);

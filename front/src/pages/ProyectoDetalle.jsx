@@ -27,7 +27,8 @@ import { mostrarFecha } from "../utils/fechas";
 
 // Tareas del proyecto, en tablero o en lista según la pestaña. Comparten filtros.
 const TareasDelProyecto = ({ proyecto, vista }) => {
-  const { filtros, setFiltros, paraApi } = useFiltrosTareas({ id_proyecto: proyecto.id_proyecto });
+  // En el tablero no se traen las finalizadas viejas; en la lista, sí.
+  const { filtros, setFiltros, paraApi } = useFiltrosTareas({ id_proyecto: proyecto.id_proyecto, tablero: vista === "tablero" ? 1 : "" });
   const consulta = useTareas(paraApi);
   const ocultar = vista === "tablero" ? ["id_proyecto", "id_etarea"] : ["id_proyecto"];
 
@@ -37,7 +38,7 @@ const TareasDelProyecto = ({ proyecto, vista }) => {
       <Consulta consulta={consulta} esqueleto={<TablaEsqueleto />}>
         {(tareas) =>
           vista === "tablero" ? (
-            <Tablero tareas={tareas} onMover={consulta.mover} mostrarProyecto={false} />
+            <Tablero tareas={tareas} onMover={consulta.mover} mostrarProyecto={false} idProyecto={proyecto.id_proyecto} />
           ) : (
             <TablaTareas tareas={tareas} mostrarProyecto={false} />
           )

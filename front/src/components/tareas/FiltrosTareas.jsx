@@ -2,11 +2,10 @@ import { useState } from "react";
 import { Button, FormControlLabel, InputAdornment, Switch } from "@mui/material";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import { useDatos, useUsuario } from "../../context/contextos";
+import { useDatos } from "../../context/contextos";
 import { useConsulta } from "../../hooks/useConsulta";
 import { proyectosApi, usuariosApi } from "../../services/api";
 import { aOpciones, FILTROS_TAREA_VACIOS } from "../../utils/opciones";
-import { esGestor } from "../../utils/permisos";
 import { CampoFecha, CampoSelect, CampoTexto } from "../ui/Campos";
 
 const VENCIMIENTOS = [
@@ -14,23 +13,20 @@ const VENCIMIENTOS = [
   { valor: "proximas", texto: "Próximas a vencer" },
 ];
 
-// Barra de filtros de tareas, compartida por el tablero y la lista.
-//   ocultar     -> filtros que no aplican en esa pantalla (ej. ["id_proyecto"] dentro de un proyecto)
+// Barra de filtros de tareas, compartida por el tablero, la lista y el historial.
+//   ocultar     -> filtros que no aplican en esa pantalla. Valores: "id_proyecto", "id_usuario_responsable",
+//                  "id_etarea", "id_prioridad", "vencimiento" (incluye el rango de fechas) y "mias"
 //   integrantes -> si se pasa, el filtro de responsable usa esa lista en vez de todos los usuarios
-const FiltrosTareas = ({ filtros, onChange, ocultar = [], integrantes }) => {
-  const { usuario } = useUsuario();
+//   conMes      -> agrega el filtro por mes de finalización (historial)
+const FiltrosTareas = ({ filtros, onChange, ocultar = [], integrantes, conMes = false }) => {
   const { catalogos } = useDatos();
   const ver = (campo) => !ocultar.includes(campo);
 
   const proyectos = useConsulta(() => proyectosApi.listar(), [], { activa: ver("id_proyecto") });
-  // La lista completa de usuarios solo la pueden pedir administradores y supervisores.
-  const pedirUsuarios = ver("id_usuario_responsable") && !integrantes && esGestor(usuario);
-  const usuarios = useConsulta(() => usuariosApi.listar({ solo_habilitados: 1 }), [], { activa: pedirUsuarios });
-
-  const responsables = integrantes
-    ? aOpciones(integrantes, "id_usuario", "nombre_usuario")
-    : (usuarios.datos ?? []).map((u) => ({ valor: u.id_usuario, texto: `${u.nombre_persona} ${u.apellido_persona}` }));
-  const verResponsable = ver("id_usuario_responsable") && (Boolean(integrantes) || pedirUsuarios);
+  // Lista mínima de usuarios (id y nombre): la puede pedir cualquiera, así todos pueden filtrar por persona.
+  // El back igual devuelve solo las tareas de los proyectos que cada uno puede ver.
+  const usuarios = useConsulta(() => usuariosApi.etiquetables(), [], { activa: ver("id_usuario_responsable") && !integrantes });
+  const responsables = aOpciones(integrantes ?? usuarios.datos, "id_usuario", "nombre_usuario");
 
   const [abiertos, setAbiertos] = useState(false);
   const cambiar = (campo) => (valor) => onChange({ ...filtros, [campo]: valor });
@@ -70,13 +66,22 @@ const FiltrosTareas = ({ filtros, onChange, ocultar = [], integrantes }) => {
           vacio="Todos"
         />
       )}
-      {verResponsable && (
+      {ver("id_usuario_responsable") && (
         <CampoSelect
           etiqueta="Responsable"
           valor={filtros.id_usuario_responsable}
           onChange={cambiar("id_usuario_responsable")}
           opciones={responsables}
           vacio="Todos"
+        />
+      )}
+      {conMes && (
+        <CampoTexto
+          etiqueta="Mes de finalización"
+          type="month"
+          valor={filtros.mes}
+          onChange={cambiar("mes")}
+          InputLabelProps={{ shrink: true }}
         />
       )}
       {ver("id_etarea") && (
@@ -88,21 +93,29 @@ const FiltrosTareas = ({ filtros, onChange, ocultar = [], integrantes }) => {
           vacio="Todos"
         />
       )}
-      <CampoSelect
-        etiqueta="Prioridad"
-        valor={filtros.id_prioridad}
-        onChange={cambiar("id_prioridad")}
-        opciones={aOpciones(catalogos.prioridades, "id_prioridad", "nombre_prioridad")}
-        vacio="Todas"
-      />
-      <CampoSelect etiqueta="Vencimiento" valor={filtros.vencimiento} onChange={cambiar("vencimiento")} opciones={VENCIMIENTOS} vacio="Cualquiera" />
-      <CampoFecha etiqueta="Vence desde" valor={filtros.vence_desde} onChange={cambiar("vence_desde")} />
-      <CampoFecha etiqueta="Vence hasta" valor={filtros.vence_hasta} onChange={cambiar("vence_hasta")} />
-      <FormControlLabel
-        className="org-filtros__fijo"
-        control={<Switch checked={filtros.mias === 1} onChange={(evento) => cambiar("mias")(evento.target.checked ? 1 : "")} />}
-        label="Solo mis tareas"
-      />
+      {ver("id_prioridad") && (
+        <CampoSelect
+          etiqueta="Prioridad"
+          valor={filtros.id_prioridad}
+          onChange={cambiar("id_prioridad")}
+          opciones={aOpciones(catalogos.prioridades, "id_prioridad", "nombre_prioridad")}
+          vacio="Todas"
+        />
+      )}
+      {ver("vencimiento") && (
+        <>
+          <CampoSelect etiqueta="Vencimiento" valor={filtros.vencimiento} onChange={cambiar("vencimiento")} opciones={VENCIMIENTOS} vacio="Cualquiera" />
+          <CampoFecha etiqueta="Vence desde" valor={filtros.vence_desde} onChange={cambiar("vence_desde")} />
+          <CampoFecha etiqueta="Vence hasta" valor={filtros.vence_hasta} onChange={cambiar("vence_hasta")} />
+        </>
+      )}
+      {ver("mias") && (
+        <FormControlLabel
+          className="org-filtros__fijo"
+          control={<Switch checked={filtros.mias === 1} onChange={(evento) => cambiar("mias")(evento.target.checked ? 1 : "")} />}
+          label="Solo mis tareas"
+        />
+      )}
       {hayFiltros && (
         <Button className="org-filtros__fijo" onClick={() => onChange({ ...filtros, ...FILTROS_TAREA_VACIOS })}>
           Limpiar

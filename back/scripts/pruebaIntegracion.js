@@ -357,6 +357,31 @@ const probarServicios = async () => {
     await tareasService.archivar(supervisor, tareaD.id_tarea, 1);
   });
 
+  await paso("tablero e historial: las finalizadas viejas salen del tablero y se encuentran en el historial", async () => {
+    const tareaE = await tareasService.crear(supervisor, datosTarea("Tarea E", { fecha_vencimiento: null }));
+    await tareasService.mover(supervisor, tareaE.id_tarea, { id_etarea: ESTADOS_TAREA.FINALIZADA, ids_columna: null });
+    const enTablero = async () => (await tareasService.listar(admin, { tablero: 1 })).some((t) => t.id_tarea === tareaE.id_tarea);
+    assert.equal(await enTablero(), true, "recién finalizada: sigue en el tablero");
+
+    // Se simula que se finalizó hace 30 días.
+    await consultar("UPDATE tarea SET fecha_finalizacion = DATE_SUB(NOW(), INTERVAL 30 DAY) WHERE id_tarea = ?", [tareaE.id_tarea]);
+    assert.equal(await enTablero(), false, "finalizada hace 30 días: ya no está en el tablero");
+    assert.ok((await tareasService.listar(admin, {})).some((t) => t.id_tarea === tareaE.id_tarea), "la lista de tareas la sigue mostrando");
+    assert.equal((await tareasService.listar(admin, { tablero: 1 })).length, (await tareasService.listar(admin, {})).length - 1, "las no finalizadas no se ocultan");
+
+    const historial = await tareasService.listar(admin, { solo_finalizadas: 1, ordenar: "finalizacion" });
+    assert.deepEqual(historial.map((t) => t.titulo), ["Tarea E"], "el historial trae solo finalizadas");
+    const haceUnMes = hoyMas(-30);
+    assert.equal((await tareasService.listar(admin, { solo_finalizadas: 1, finalizada_desde: haceUnMes, finalizada_hasta: haceUnMes })).length, 1);
+    assert.equal((await tareasService.listar(admin, { solo_finalizadas: 1, finalizada_desde: hoyMas(-5) })).length, 0);
+    assert.equal((await tareasService.listar(admin, { solo_finalizadas: 1, finalizada_hasta: hoyMas(-40) })).length, 0);
+    // Reabrirla la devuelve al tablero.
+    await tareasService.mover(supervisor, tareaE.id_tarea, { id_etarea: ESTADOS_TAREA.EN_PROGRESO, ids_columna: null });
+    assert.equal(await enTablero(), true);
+    // Se archiva para que no cambie los totales de los pasos que siguen.
+    await tareasService.archivar(supervisor, tareaE.id_tarea, 1);
+  });
+
   await paso("responsables de proyecto: se marcan varios, solo quien gestiona, y no cambia permisos", async () => {
     const responsables = async () => (await proyectosService.listarIntegrantes(admin, proyecto.id_proyecto)).filter((i) => i.es_responsable === 1).map((i) => i.id_usuario);
     assert.deepEqual(await responsables(), [supervisor.id_usuario]);
@@ -426,7 +451,7 @@ const probarServicios = async () => {
     await falla(403, tareasService.archivar(colaborador, tareaC.id_tarea, 1));
     await tareasService.archivar(supervisor, tareaC.id_tarea, 1);
     assert.equal((await tareasService.listar(admin, {})).length, 2);
-    assert.equal((await tareasService.listar(admin, { archivada: 1 })).length, 2, "C y la tarea D archivada antes");
+    assert.equal((await tareasService.listar(admin, { archivada: 1 })).length, 3, "C y las tareas D y E archivadas antes");
     await falla(409, tareasService.agregarComentario(colaborador, tareaC.id_tarea, { comentario: "No debería entrar", ids_mencionados: [] }));
     await tareasService.archivar(supervisor, tareaC.id_tarea, 0);
 
@@ -466,7 +491,8 @@ const probarApi = async ({ admin, colaborador, ajeno, proyecto, tareaA }) => {
       assert.equal(catalogos.estado, 200);
       assert.equal(catalogos.datos.estadosTarea.length, 5);
       assert.equal(catalogos.datos.prioridades.length, 4);
-      for (const ruta of ["/dashboard", "/proyectos", "/usuarios/etiquetables", "/tareas?mias=1&ordenar=vencimiento", "/actividad?cantidad=5", "/notificaciones", "/notificaciones/resumen", "/usuarios", `/proyectos/${proyecto.id_proyecto}`, `/proyectos/${proyecto.id_proyecto}/integrantes`, `/tareas/${tareaA.id_tarea}`, `/tareas/${tareaA.id_tarea}/actualizaciones`, `/tareas/${tareaA.id_tarea}/comentarios`]) {
+      assert.equal(catalogos.datos.configuracion.dias_finalizadas_en_tablero, env.diasFinalizadasEnTablero);
+      for (const ruta of ["/dashboard", "/proyectos", "/usuarios/etiquetables", "/tareas?tablero=1", "/tareas?solo_finalizadas=1&ordenar=finalizacion&finalizada_desde=2026-01-01", "/tareas?mias=1&ordenar=vencimiento", "/actividad?cantidad=5", "/notificaciones", "/notificaciones/resumen", "/usuarios", `/proyectos/${proyecto.id_proyecto}`, `/proyectos/${proyecto.id_proyecto}/integrantes`, `/tareas/${tareaA.id_tarea}`, `/tareas/${tareaA.id_tarea}/actualizaciones`, `/tareas/${tareaA.id_tarea}/comentarios`]) {
         const respuesta = await pedir(admin, "GET", ruta);
         assert.equal(respuesta.estado, 200, `${ruta} -> ${respuesta.estado} ${JSON.stringify(respuesta.datos)}`);
       }

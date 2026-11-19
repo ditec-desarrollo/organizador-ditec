@@ -42,6 +42,8 @@ export const env = {
     .map((origen) => origen.trim())
     .filter(Boolean),
   diasAvisoVencimiento: entero("DIAS_AVISO_VENCIMIENTO", 2),
+  // Cuántos días después de finalizada una tarea sigue apareciendo en el tablero.
+  diasFinalizadasEnTablero: entero("DIAS_FINALIZADAS_EN_TABLERO", 7),
   // Rutas de la clave y el certificado. Si están las dos, el back sirve HTTPS (producción); si no, HTTP.
   https: {
     key: opcional("HTTPS_KEY"),

@@ -8,6 +8,7 @@ import Proyectos from "./pages/Proyectos";
 import ProyectoDetalle from "./pages/ProyectoDetalle";
 import TableroGeneral from "./pages/TableroGeneral";
 import Tareas from "./pages/Tareas";
+import Historial from "./pages/Historial";
 import Notificaciones from "./pages/Notificaciones";
 import Usuarios from "./pages/Usuarios";
 import NoEncontrada from "./pages/NoEncontrada";
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="/proyectos/:id_proyecto" element={<ProyectoDetalle />} />
               <Route path="/tablero" element={<TableroGeneral />} />
               <Route path="/tareas" element={<Tareas />} />
+              <Route path="/historial" element={<Historial />} />
               <Route path="/notificaciones" element={<Notificaciones />} />
               <Route path="*" element={<NoEncontrada />} />
             </Route>

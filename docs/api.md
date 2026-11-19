@@ -45,7 +45,7 @@ Una tarea puede tener varios responsables y todos pueden actualizarla. Ser respo
 |---|---|---|
 | `GET /salud` | público | `{ "ok": true }`. Para monitoreo. |
 | `GET /usuarios/authStatus` | token válido | `{ usuario }`: datos de la persona + `id_usuario`, `id_tusuario`, `nombre_tusuario`. Estos tres vienen en `null` si la persona no es usuaria habilitada del Organizador. |
-| `GET /catalogos` | usuario | `{ tiposUsuario, estadosProyecto, estadosTarea, prioridades, tiposActualizacion }`. |
+| `GET /catalogos` | usuario | `{ tiposUsuario, estadosProyecto, estadosTarea, prioridades, tiposActualizacion, configuracion }`. `configuracion` trae `dias_aviso_vencimiento` y `dias_finalizadas_en_tablero`. |
 | `GET /dashboard` | usuario | Panel según el rol (ver abajo). |
 | `GET /actividad` | usuario | Actividad reciente de los proyectos visibles. Filtros: `id_proyecto`, `id_tarea`, `id_usuario`, `cantidad` (máx. 200, por defecto 30). |
 
@@ -133,7 +133,10 @@ Filtros de `GET /tareas`:
 | `vence_desde`, `vence_hasta` | Rango de fecha de vencimiento. |
 | `vencimiento` | `vencidas` o `proximas` (vencen dentro de `DIAS_AVISO_VENCIMIENTO` días). |
 | `archivada` | `1` para ver las archivadas (por defecto `0`). |
-| `ordenar` | `tablero` (por defecto: estado y posición) o `vencimiento`. |
+| `tablero=1` | Oculta las finalizadas hace más de `DIAS_FINALIZADAS_EN_TABLERO` días (lo usa el tablero). No modifica las tareas: siguen saliendo sin este parámetro. |
+| `solo_finalizadas=1` | Solo las tareas en un estado final (lo usa el Historial). |
+| `finalizada_desde`, `finalizada_hasta` | Rango de fecha de finalización. |
+| `ordenar` | `tablero` (por defecto: estado y posición), `vencimiento` o `finalizacion` (de la más reciente a la más vieja). |
 | `limite` | Máximo de filas (por defecto 1000, máx. 2000). |
 
 Cada tarea trae, además de sus columnas: `nombre_proyecto`, `responsables` (lista de `{ id_usuario, nombre_usuario }`, vacía si está sin asignar), `nombre_prioridad`, `nombre_etarea`, `es_final`, `nombre_creador`, `vencida` (1/0) y `dias_para_vencer`.

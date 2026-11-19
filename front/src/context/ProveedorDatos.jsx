@@ -4,7 +4,14 @@ import { DatosContext, useUsuario } from "./contextos";
 import { notificacionesApi, sesionApi } from "../services/api";
 
 const CADA_UN_MINUTO = 60 * 1000;
-const CATALOGOS_VACIOS = { tiposUsuario: [], estadosProyecto: [], estadosTarea: [], prioridades: [], tiposActualizacion: [] };
+const CATALOGOS_VACIOS = {
+  tiposUsuario: [],
+  estadosProyecto: [],
+  estadosTarea: [],
+  prioridades: [],
+  tiposActualizacion: [],
+  configuracion: { dias_aviso_vencimiento: 2, dias_finalizadas_en_tablero: 7 },
+};
 
 const ProveedorDatos = ({ children }) => {
   const { tieneAcceso } = useUsuario();
@@ -18,7 +25,10 @@ const ProveedorDatos = ({ children }) => {
   // Catálogos: no cambian durante la sesión, se piden una sola vez.
   useEffect(() => {
     if (!tieneAcceso) return;
-    sesionApi.catalogos().then(setCatalogos).catch(() => setCatalogos(CATALOGOS_VACIOS));
+    sesionApi
+      .catalogos()
+      .then((datos) => setCatalogos({ ...CATALOGOS_VACIOS, ...datos }))
+      .catch(() => setCatalogos(CATALOGOS_VACIOS));
   }, [tieneAcceso]);
 
   // Notificaciones sin leer: al entrar, cada minuto y cada vez que algo cambia.

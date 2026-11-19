@@ -34,7 +34,7 @@ export const listar = (usuario, filtros) =>
   tareasRepository.listar(
     usuario,
     { ...filtros, id_usuario_responsable: filtros.mias === 1 ? usuario.id_usuario : filtros.id_usuario_responsable },
-    env.diasAvisoVencimiento,
+    { proximas: env.diasAvisoVencimiento, finalizadas: env.diasFinalizadasEnTablero },
   );
 
 export const obtener = async (usuario, id_tarea) => {

@@ -3,6 +3,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import FolderRoundedIcon from "@mui/icons-material/FolderRounded";
 import ViewKanbanRoundedIcon from "@mui/icons-material/ViewKanbanRounded";
 import ChecklistRoundedIcon from "@mui/icons-material/ChecklistRounded";
+import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import GroupRoundedIcon from "@mui/icons-material/GroupRounded";
 import { esAdmin } from "../utils/permisos";
@@ -23,6 +24,7 @@ export const ITEMS_MENU = [
   { ruta: "/proyectos", texto: "Proyectos", icono: createElement(FolderRoundedIcon) },
   { ruta: "/tablero", texto: "Tablero", icono: createElement(ViewKanbanRoundedIcon) },
   { ruta: "/tareas", texto: "Tareas", icono: createElement(ChecklistRoundedIcon) },
+  { ruta: "/historial", texto: "Historial", icono: createElement(HistoryRoundedIcon) },
   { ruta: "/notificaciones", texto: "Notificaciones", icono: createElement(NotificationsRoundedIcon) },
   {
     ruta: "/usuarios",

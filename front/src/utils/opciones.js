@@ -21,4 +21,6 @@ export const FILTROS_TAREA_VACIOS = {
   vence_desde: "",
   vence_hasta: "",
   mias: "",
+  // "AAAA-MM": mes de finalización (solo lo usa el historial).
+  mes: "",
 };

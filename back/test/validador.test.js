@@ -118,6 +118,18 @@ test("filtros de tareas: los valores libres salen de una lista cerrada", () => {
   assert.equal(filtrosTarea({ mias: "1", id_etarea: "2" }).mias, 1);
 });
 
+test("filtros de tareas: tablero e historial", () => {
+  assert.equal(filtrosTarea({ tablero: "1" }).tablero, 1);
+  assert.equal(filtrosTarea({}).tablero, null, "sin el parámetro no se oculta nada");
+  const historial = filtrosTarea({ solo_finalizadas: "1", finalizada_desde: "2026-11-01", finalizada_hasta: "2026-11-30", ordenar: "finalizacion" });
+  assert.deepEqual(
+    [historial.solo_finalizadas, historial.finalizada_desde, historial.finalizada_hasta, historial.ordenar],
+    [1, "2026-11-01", "2026-11-30", "finalizacion"],
+  );
+  assert.ok(erroresDe(() => filtrosTarea({ finalizada_desde: "noviembre" })).finalizada_desde);
+  assert.ok(erroresDe(() => filtrosTarea({ tablero: "quizas" })).tablero);
+});
+
 test("proyecto: la fecha de fin no puede ser anterior al inicio", () => {
   const errores = erroresDe(() =>
     datosProyecto({ nombre_proyecto: "Portal", id_eproyecto: 1, fecha_inicio: "2026-05-01", fecha_fin_estimada: "2026-04-01" }),

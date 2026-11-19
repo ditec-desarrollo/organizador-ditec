@@ -4,6 +4,7 @@ import * as dashboardService from "../services/dashboardService.js";
 import * as notificacionesService from "../services/notificacionesService.js";
 import { filtrosActividad, filtrosNotificacion } from "../validations/tareasValidation.js";
 import { idDeRuta } from "../utils/validador.js";
+import { env } from "../config/env.js";
 
 // Catálogos que usa el front para armar selects, columnas del tablero y chips.
 export const obtenerCatalogos = async (req, res) => {
@@ -14,7 +15,12 @@ export const obtenerCatalogos = async (req, res) => {
     catalogosRepository.prioridades(),
     catalogosRepository.tiposActualizacion(),
   ]);
-  res.json({ tiposUsuario, estadosProyecto, estadosTarea, prioridades, tiposActualizacion });
+  // `configuracion`: valores del .env que el front necesita para explicar lo que muestra.
+  const configuracion = {
+    dias_aviso_vencimiento: env.diasAvisoVencimiento,
+    dias_finalizadas_en_tablero: env.diasFinalizadasEnTablero,
+  };
+  res.json({ tiposUsuario, estadosProyecto, estadosTarea, prioridades, tiposActualizacion, configuracion });
 };
 
 export const obtenerDashboard = async (req, res) => {

@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { Button } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { useDatos, useUsuario } from "../../context/contextos";
 import { claseEstadoTarea } from "../../utils/estados";
@@ -8,9 +10,13 @@ import TarjetaTarea from "./TarjetaTarea";
 // Tablero Kanban: una columna por estado de tarea (las columnas salen del catálogo del back).
 // Solo se pueden arrastrar las tarjetas que el usuario puede actualizar; el back vuelve a validarlo.
 //   onMover(id_tarea, id_etarea, indice) -> lo resuelve hooks/useTareas.js
-const Tablero = ({ tareas, onMover, mostrarProyecto = true }) => {
+//   idProyecto -> si el tablero es de un proyecto, el enlace al historial ya lo lleva elegido
+// La columna de un estado final muestra solo lo finalizado en los últimos días; lo anterior está en el Historial.
+const Tablero = ({ tareas, onMover, mostrarProyecto = true, idProyecto }) => {
   const { usuario } = useUsuario();
   const { catalogos, abrirTarea } = useDatos();
+  const navigate = useNavigate();
+  const diasFinalizadas = catalogos.configuracion.dias_finalizadas_en_tablero;
 
   const columnas = useMemo(
     () =>
@@ -67,6 +73,14 @@ const Tablero = ({ tareas, onMover, mostrarProyecto = true }) => {
                 </div>
               )}
             </Droppable>
+            {columna.es_final === 1 && (
+              <p className="org-columna__nota">
+                Solo las de los últimos {diasFinalizadas} días.
+                <Button size="small" onClick={() => navigate(idProyecto ? `/historial?id_proyecto=${idProyecto}` : "/historial")}>
+                  Ver anteriores
+                </Button>
+              </p>
+            )}
           </section>
         ))}
       </div>
