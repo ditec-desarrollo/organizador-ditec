@@ -42,6 +42,11 @@ export const env = {
     .map((origen) => origen.trim())
     .filter(Boolean),
   diasAvisoVencimiento: entero("DIAS_AVISO_VENCIMIENTO", 2),
+  // Rutas de la clave y el certificado. Si están las dos, el back sirve HTTPS (producción); si no, HTTP.
+  https: {
+    key: opcional("HTTPS_KEY"),
+    cert: opcional("HTTPS_CERT"),
+  },
 };
 
 export default env;

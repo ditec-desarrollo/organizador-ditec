@@ -111,6 +111,17 @@ front/src/
 | `@hello-pangea/dnd` | `@dnd-kit` | Está hecha para listas y tableros tipo Kanban y trae accesibilidad por teclado. Ninguna app de la casa tenía drag and drop. |
 | Notificaciones por consulta periódica | WebSockets | El front pregunta una vez por minuto cuántas hay sin leer. Alcanza para este uso y no suma infraestructura. |
 
+## Producción
+
+| Parte | Dónde | Configuración |
+|---|---|---|
+| Back | `https://estadisticas.smt.gob.ar:5066` | En `back/.env`: `PORT = 5066`, `HTTPS_KEY` y `HTTPS_CERT` con las rutas de la clave y el certificado, y `CORS_ORIGENES` con la URL desde la que se sirve el front. |
+| Front | Archivos estáticos de `front/dist` | `front/.env.production` define `VITE_APP_RUTA_BACK = https://estadisticas.smt.gob.ar:5066`. Se genera con `npm run build`. |
+
+- El back sirve HTTPS por sí mismo cuando `HTTPS_KEY` y `HTTPS_CERT` están completas; sin ellas sirve HTTP (desarrollo). No hay que comentar ni descomentar código.
+- La URL del back queda escrita dentro del build: si cambia, hay que volver a generar `dist`.
+- El build usa rutas relativas y la app navega con `#`, así que `dist` se puede publicar en cualquier carpeta sin configurar el servidor web.
+
 ## Cómo sumar una funcionalidad
 
 1. Si cambia la base: un archivo nuevo en `back/migrations` y `npm run migrar`.
