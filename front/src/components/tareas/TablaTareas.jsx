@@ -5,6 +5,7 @@ import { alertaVencimiento, textoVencimiento } from "../../utils/fechas";
 import BarraAvance from "../ui/BarraAvance";
 import { ChipEstadoTarea, ChipPrioridad } from "../ui/Chips";
 import { EstadoVacio } from "../ui/Estados";
+import ResponsablesTarea from "../ui/ResponsablesTarea";
 
 const CLASE_VENCIMIENTO = { vencida: "org-vencida", proxima: "org-proxima" };
 
@@ -33,7 +34,7 @@ const TablaTareas = ({ tareas, mostrarProyecto = true }) => {
         <TableHead>
           <TableRow>
             <TableCell>Tarea</TableCell>
-            <TableCell>Responsable</TableCell>
+            <TableCell>Responsables</TableCell>
             <TableCell>Estado</TableCell>
             <TableCell>Prioridad</TableCell>
             <TableCell sx={{ minWidth: 150 }}>Avance</TableCell>
@@ -54,7 +55,9 @@ const TablaTareas = ({ tareas, mostrarProyecto = true }) => {
                 <span className="org-celda-principal">{tarea.titulo}</span>
                 {mostrarProyecto && <span className="org-celda-secundaria">{tarea.nombre_proyecto}</span>}
               </TableCell>
-              <TableCell>{tarea.nombre_responsable || "Sin asignar"}</TableCell>
+              <TableCell>
+                <ResponsablesTarea responsables={tarea.responsables} />
+              </TableCell>
               <TableCell>
                 <ChipEstadoTarea id={tarea.id_etarea} nombre={tarea.nombre_etarea} />
               </TableCell>

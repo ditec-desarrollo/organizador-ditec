@@ -1,17 +1,23 @@
 import { enTransaccion } from "../config/dbOrganizador.js";
 import * as tareasRepository from "../repositories/tareasRepository.js";
 import * as proyectosRepository from "../repositories/proyectosRepository.js";
+import * as usuariosRepository from "../repositories/usuariosRepository.js";
 import * as catalogosRepository from "../repositories/catalogosRepository.js";
 import * as actividadRepository from "../repositories/actividadRepository.js";
 import { notificar } from "./notificacionesService.js";
 import { accesoATarea, exigirGestionDeProyecto, exigirProyectoActivo, exigirTareaActiva } from "./permisosService.js";
 import { conflicto, datosInvalidos, noAutorizado, noEncontrado } from "../utils/customError.js";
 import { ACCIONES, ESTADOS_TAREA, TIPOS_ACTUALIZACION, TIPOS_NOTIFICACION, esAdmin } from "../utils/constantes.js";
+import { mencionadosEnTexto } from "../utils/menciones.js";
 import { env } from "../config/env.js";
 
-const exigirResponsableIntegrante = async (id_proyecto, id_usuario_responsable) => {
-  if (id_usuario_responsable && !(await proyectosRepository.esIntegrante(id_proyecto, id_usuario_responsable))) {
-    throw datosInvalidos({ id_usuario_responsable: "El responsable tiene que ser integrante del proyecto" });
+const idsDe = (responsables) => responsables.map((responsable) => responsable.id_usuario);
+
+const exigirResponsablesIntegrantes = async (id_proyecto, ids_responsables) => {
+  for (const id_usuario of ids_responsables) {
+    if (!(await proyectosRepository.esIntegrante(id_proyecto, id_usuario))) {
+      throw datosInvalidos({ ids_responsables: "Todos los responsables tienen que ser integrantes del proyecto" });
+    }
   }
 };
 
@@ -41,7 +47,7 @@ export const obtener = async (usuario, id_tarea) => {
 export const crear = async (usuario, datos) => {
   const { proyecto } = await exigirGestionDeProyecto(usuario, datos.id_proyecto);
   exigirProyectoActivo(proyecto);
-  await exigirResponsableIntegrante(datos.id_proyecto, datos.id_usuario_responsable);
+  await exigirResponsablesIntegrantes(datos.id_proyecto, datos.ids_responsables);
 
   const estado = await buscarEstado(datos.id_etarea ?? ESTADOS_TAREA.PENDIENTE);
   const finalizada = estado.es_final === 1;
@@ -58,13 +64,14 @@ export const crear = async (usuario, datos) => {
       },
       connection,
     );
+    await tareasRepository.reemplazarResponsables(id, datos.ids_responsables, usuario.id_usuario, connection);
     await actividadRepository.registrar(
       { id_usuario: usuario.id_usuario, accion: ACCIONES.TAREA_CREADA, id_proyecto: datos.id_proyecto, id_tarea: id, descripcion: `creó la tarea "${datos.titulo}"` },
       connection,
     );
     await notificar(
       {
-        destinatarios: [datos.id_usuario_responsable],
+        destinatarios: datos.ids_responsables,
         id_usuario_origen: usuario.id_usuario,
         id_tnotificacion: TIPOS_NOTIFICACION.TAREA_ASIGNADA,
         id_tarea: id,
@@ -84,12 +91,18 @@ export const actualizar = async (usuario, id_tarea, datos) => {
   exigirProyectoActivo(proyecto);
   exigirTareaActiva(tarea);
 
-  const reasignada = datos.id_usuario_responsable !== tarea.id_usuario_responsable;
+  // Quiénes se suman, quiénes dejan de ser responsables y quiénes siguen: a cada grupo le llega un aviso distinto.
+  const antes = idsDe(tarea.responsables);
+  const agregados = datos.ids_responsables.filter((id) => !antes.includes(id));
+  const quitados = antes.filter((id) => !datos.ids_responsables.includes(id));
+  const siguen = datos.ids_responsables.filter((id) => antes.includes(id));
+  const reasignada = agregados.length > 0 || quitados.length > 0;
   const cambioVencimiento = datos.fecha_vencimiento !== tarea.fecha_vencimiento;
-  if (reasignada) await exigirResponsableIntegrante(tarea.id_proyecto, datos.id_usuario_responsable);
+  await exigirResponsablesIntegrantes(tarea.id_proyecto, agregados);
 
   await enTransaccion(async (connection) => {
     await tareasRepository.actualizarDatos(id_tarea, datos, connection);
+    if (reasignada) await tareasRepository.reemplazarResponsables(id_tarea, datos.ids_responsables, usuario.id_usuario, connection);
     await actividadRepository.registrar(
       {
         id_usuario: usuario.id_usuario,
@@ -102,46 +115,33 @@ export const actualizar = async (usuario, id_tarea, datos) => {
     );
 
     const base = { id_usuario_origen: usuario.id_usuario, id_tarea, id_proyecto: tarea.id_proyecto };
-    if (reasignada) {
-      await notificar(
-        {
-          ...base,
-          destinatarios: [datos.id_usuario_responsable],
-          id_tnotificacion: TIPOS_NOTIFICACION.TAREA_ASIGNADA,
-          texto: `Se te asignó la tarea "${datos.titulo}" (${proyecto.nombre_proyecto})`,
-        },
-        connection,
-      );
-      await notificar(
-        {
-          ...base,
-          destinatarios: [tarea.id_usuario_responsable],
-          id_tnotificacion: TIPOS_NOTIFICACION.TAREA_MODIFICADA,
-          texto: `La tarea "${datos.titulo}" fue reasignada a otra persona`,
-        },
-        connection,
-      );
-    } else if (cambioVencimiento) {
-      await notificar(
-        {
-          ...base,
-          destinatarios: [datos.id_usuario_responsable],
-          id_tnotificacion: TIPOS_NOTIFICACION.CAMBIO_VENCIMIENTO,
-          texto: `Cambió la fecha de entrega de la tarea "${datos.titulo}"`,
-        },
-        connection,
-      );
-    } else {
-      await notificar(
-        {
-          ...base,
-          destinatarios: [datos.id_usuario_responsable],
-          id_tnotificacion: TIPOS_NOTIFICACION.TAREA_MODIFICADA,
-          texto: `Se modificó la tarea "${datos.titulo}"`,
-        },
-        connection,
-      );
-    }
+    await notificar(
+      {
+        ...base,
+        destinatarios: agregados,
+        id_tnotificacion: TIPOS_NOTIFICACION.TAREA_ASIGNADA,
+        texto: `Se te asignó la tarea "${datos.titulo}" (${proyecto.nombre_proyecto})`,
+      },
+      connection,
+    );
+    await notificar(
+      {
+        ...base,
+        destinatarios: quitados,
+        id_tnotificacion: TIPOS_NOTIFICACION.TAREA_MODIFICADA,
+        texto: `Ya no sos responsable de la tarea "${datos.titulo}"`,
+      },
+      connection,
+    );
+    await notificar(
+      {
+        ...base,
+        destinatarios: siguen,
+        id_tnotificacion: cambioVencimiento ? TIPOS_NOTIFICACION.CAMBIO_VENCIMIENTO : TIPOS_NOTIFICACION.TAREA_MODIFICADA,
+        texto: cambioVencimiento ? `Cambió la fecha de entrega de la tarea "${datos.titulo}"` : `Se modificó la tarea "${datos.titulo}"`,
+      },
+      connection,
+    );
   });
   return obtener(usuario, id_tarea);
 };
@@ -168,7 +168,7 @@ export const archivar = async (usuario, id_tarea, archivada) => {
   return obtener(usuario, id_tarea);
 };
 
-// ───────────── Seguimiento (quien gestiona o el responsable) ─────────────
+// ───────────── Seguimiento (quien gestiona o cualquier responsable) ─────────────
 
 // Aplica un cambio de estado y/o avance con su comentario, y deja el registro en el historial.
 // Es el único camino por el que cambian tarea.id_etarea y tarea.porcentaje_avance,
@@ -230,11 +230,12 @@ const aplicarSeguimiento = async (connection, usuario, tarea, { id_tactualizacio
     connection,
   );
 
-  // Si lo hizo el responsable se entera quien creó la tarea; si lo hizo otra persona, el responsable.
-  const esResponsable = tarea.id_usuario_responsable === usuario.id_usuario;
+  // Se enteran quien creó la tarea y los demás responsables (notificar() nunca le avisa a quien hizo el cambio).
+  const responsables = idsDe(tarea.responsables);
+  const esResponsable = responsables.includes(usuario.id_usuario);
   await notificar(
     {
-      destinatarios: [esResponsable ? tarea.id_usuario_alta : tarea.id_usuario_responsable],
+      destinatarios: [tarea.id_usuario_alta, ...responsables],
       id_usuario_origen: usuario.id_usuario,
       id_tnotificacion: esResponsable ? TIPOS_NOTIFICACION.AVANCE_REGISTRADO : TIPOS_NOTIFICACION.TAREA_MODIFICADA,
       id_tarea: tarea.id_tarea,
@@ -247,7 +248,7 @@ const aplicarSeguimiento = async (connection, usuario, tarea, { id_tactualizacio
 
 const exigirPuedeActualizar = async (usuario, id_tarea) => {
   const acceso = await accesoATarea(usuario, id_tarea);
-  if (!acceso.puedeActualizar) throw noAutorizado("Solo el responsable o quien gestiona el proyecto puede actualizar esta tarea");
+  if (!acceso.puedeActualizar) throw noAutorizado("Solo un responsable o quien gestiona el proyecto puede actualizar esta tarea");
   exigirProyectoActivo(acceso.proyecto);
   exigirTareaActiva(acceso.tarea);
   return acceso;
@@ -310,14 +311,54 @@ export const listarComentarios = async (usuario, id_tarea) => {
   return tareasRepository.listarComentarios(id_tarea);
 };
 
-// Puede comentar cualquier integrante del proyecto.
-export const agregarComentario = async (usuario, id_tarea, comentario) => {
+// De los ids que manda el front, quedan solo los usuarios habilitados cuyo "@Nombre Apellido"
+// figura de verdad en el texto (ver utils/menciones.js).
+const resolverMenciones = async (comentario, ids_mencionados) => {
+  if (ids_mencionados.length === 0) return [];
+  return mencionadosEnTexto(comentario, await usuariosRepository.obtenerHabilitados(ids_mencionados));
+};
+
+// Puede comentar cualquier integrante del proyecto. Con @ se etiqueta a cualquier usuario:
+// recibe una notificación y, si no era integrante del proyecto, se lo suma para que pueda ver la tarea.
+export const agregarComentario = async (usuario, id_tarea, { comentario, ids_mencionados }) => {
   const { tarea, proyecto } = await accesoATarea(usuario, id_tarea);
   exigirProyectoActivo(proyecto);
   exigirTareaActiva(tarea);
+  const mencionados = await resolverMenciones(comentario, ids_mencionados);
+  const idsMencionados = mencionados.map((u) => u.id_usuario);
 
   await enTransaccion(async (connection) => {
-    await tareasRepository.insertarComentario({ id_tarea, id_usuario: usuario.id_usuario, comentario }, connection);
+    const id_tarea_comentario = await tareasRepository.insertarComentario({ id_tarea, id_usuario: usuario.id_usuario, comentario }, connection);
+
+    if (mencionados.length > 0) {
+      await tareasRepository.insertarMenciones(id_tarea_comentario, idsMencionados, connection);
+      for (const mencionado of mencionados) {
+        if (await proyectosRepository.esIntegrante(tarea.id_proyecto, mencionado.id_usuario, connection)) continue;
+        await proyectosRepository.agregarIntegrante(tarea.id_proyecto, mencionado.id_usuario, usuario.id_usuario, connection);
+        await actividadRepository.registrar(
+          {
+            id_usuario: usuario.id_usuario,
+            accion: ACCIONES.INTEGRANTE_AGREGADO,
+            id_proyecto: tarea.id_proyecto,
+            id_tarea,
+            descripcion: `sumó a ${mencionado.nombre_usuario} al proyecto "${proyecto.nombre_proyecto}" al etiquetarlo en un comentario`,
+          },
+          connection,
+        );
+      }
+      await notificar(
+        {
+          destinatarios: idsMencionados,
+          id_usuario_origen: usuario.id_usuario,
+          id_tnotificacion: TIPOS_NOTIFICACION.MENCION,
+          id_tarea,
+          id_proyecto: tarea.id_proyecto,
+          texto: `Te mencionaron en un comentario de la tarea "${tarea.titulo}"`,
+        },
+        connection,
+      );
+    }
+
     await actividadRepository.registrar(
       {
         id_usuario: usuario.id_usuario,
@@ -328,9 +369,10 @@ export const agregarComentario = async (usuario, id_tarea, comentario) => {
       },
       connection,
     );
+    // A los mencionados ya les llegó el aviso de la mención: no se les repite el de "comentario nuevo".
     await notificar(
       {
-        destinatarios: [tarea.id_usuario_responsable, tarea.id_usuario_alta],
+        destinatarios: [...idsDe(tarea.responsables), tarea.id_usuario_alta].filter((id) => !idsMencionados.includes(id)),
         id_usuario_origen: usuario.id_usuario,
         id_tnotificacion: TIPOS_NOTIFICACION.COMENTARIO,
         id_tarea,

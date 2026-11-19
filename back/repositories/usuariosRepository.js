@@ -64,6 +64,28 @@ export const listar = ({ soloHabilitados = false } = {}) =>
      ORDER BY p.apellido_persona, p.nombre_persona, u.id_usuario`,
   );
 
+// Usuarios que se pueden etiquetar en un comentario. La ve cualquier usuario,
+// así que solo lleva el id y el nombre (sin CUIL ni email).
+export const listarEtiquetables = () =>
+  consultar(
+    `SELECT u.id_usuario, ${nombreCompleto("p")} AS nombre_usuario
+     FROM usuario u
+     LEFT JOIN ${TABLA_PERSONA} p ON p.id_persona = u.id_persona
+     WHERE u.habilita = 1
+     ORDER BY p.apellido_persona, p.nombre_persona, u.id_usuario`,
+  );
+
+// Varios usuarios habilitados por id (para validar a quién se etiquetó).
+export const obtenerHabilitados = (ids, connection) =>
+  consultar(
+    `SELECT u.id_usuario, ${nombreCompleto("p")} AS nombre_usuario
+     FROM usuario u
+     LEFT JOIN ${TABLA_PERSONA} p ON p.id_persona = u.id_persona
+     WHERE u.habilita = 1 AND u.id_usuario IN (${ids.map(() => "?").join(", ")})`,
+    ids,
+    connection,
+  );
+
 export const obtener = async (id_usuario, connection) => {
   const filas = await consultar(`${SELECT_USUARIO} WHERE u.id_usuario = ? LIMIT 1`, [id_usuario], connection);
   return filas[0] ?? null;

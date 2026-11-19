@@ -1,6 +1,13 @@
 import { Router } from "express";
-import { soloAdmin, soloGestores } from "../middlewares/verifyRole.js";
-import { actualizarUsuario, buscarPersona, crearUsuario, getAuthStatus, listarUsuarios } from "../controllers/usuariosControllers.js";
+import { soloAdmin, soloGestores, usuarioHabilitado } from "../middlewares/verifyRole.js";
+import {
+  actualizarUsuario,
+  buscarPersona,
+  crearUsuario,
+  getAuthStatus,
+  listarEtiquetables,
+  listarUsuarios,
+} from "../controllers/usuariosControllers.js";
 
 const router = Router();
 
@@ -9,6 +16,8 @@ router.get("/authStatus", getAuthStatus);
 
 // Administradores y supervisores necesitan la lista para sumar integrantes y asignar tareas.
 router.get("/", soloGestores, listarUsuarios);
+// Lista mínima (id y nombre) para etiquetar con @ en los comentarios: la puede pedir cualquier usuario.
+router.get("/etiquetables", usuarioHabilitado, listarEtiquetables);
 router.get("/persona/:documento", soloAdmin, buscarPersona);
 router.post("/", soloAdmin, crearUsuario);
 router.put("/:id_usuario", soloAdmin, actualizarUsuario);

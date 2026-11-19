@@ -5,7 +5,7 @@ import { useConsulta } from "../../hooks/useConsulta";
 import { proyectosApi, tareasApi } from "../../services/api";
 import { avisarExito, mostrarErrorDeFormulario } from "../../utils/avisos";
 import { aOpciones, oNull } from "../../utils/opciones";
-import { CampoFecha, CampoSelect, CampoTexto } from "../ui/Campos";
+import { CampoFecha, CampoSeleccionMultiple, CampoSelect, CampoTexto } from "../ui/Campos";
 
 const PRIORIDAD_MEDIA = 2;
 const ESTADO_PENDIENTE = 1;
@@ -31,7 +31,7 @@ const FormularioTarea = ({ tarea, idProyecto, onCerrar, onGuardada }) => {
     id_proyecto: tarea?.id_proyecto ?? idProyecto ?? "",
     titulo: tarea?.titulo ?? "",
     descripcion: tarea?.descripcion ?? "",
-    id_usuario_responsable: tarea?.id_usuario_responsable ?? "",
+    ids_responsables: tarea ? tarea.responsables.map((responsable) => responsable.id_usuario) : [],
     id_prioridad: tarea?.id_prioridad ?? PRIORIDAD_MEDIA,
     id_etarea: tarea?.id_etarea ?? ESTADO_PENDIENTE,
     fecha_inicio: tarea?.fecha_inicio ?? "",
@@ -42,13 +42,13 @@ const FormularioTarea = ({ tarea, idProyecto, onCerrar, onGuardada }) => {
 
   const proyectoFijo = esEdicion || Boolean(idProyecto);
   const proyectos = useConsulta(() => proyectosApi.listar(), [], { activa: !proyectoFijo });
-  // El responsable tiene que ser integrante del proyecto elegido.
+  // Los responsables tienen que ser integrantes del proyecto elegido.
   const integrantes = useConsulta(() => proyectosApi.integrantes(datos.id_proyecto), [datos.id_proyecto], {
     activa: Boolean(datos.id_proyecto),
   });
 
   const cambiar = (campo) => (valor) => setDatos((actuales) => ({ ...actuales, [campo]: valor }));
-  const cambiarProyecto = (valor) => setDatos((actuales) => ({ ...actuales, id_proyecto: valor, id_usuario_responsable: "" }));
+  const cambiarProyecto = (valor) => setDatos((actuales) => ({ ...actuales, id_proyecto: valor, ids_responsables: [] }));
 
   const guardar = async (evento) => {
     evento.preventDefault();
@@ -59,7 +59,7 @@ const FormularioTarea = ({ tarea, idProyecto, onCerrar, onGuardada }) => {
     const generales = {
       titulo: datos.titulo.trim(),
       descripcion: oNull(datos.descripcion.trim()),
-      id_usuario_responsable: oNull(datos.id_usuario_responsable),
+      ids_responsables: datos.ids_responsables,
       id_prioridad: datos.id_prioridad,
       fecha_inicio: oNull(datos.fecha_inicio),
       fecha_vencimiento: oNull(datos.fecha_vencimiento),
@@ -121,15 +121,15 @@ const FormularioTarea = ({ tarea, idProyecto, onCerrar, onGuardada }) => {
               />
             </div>
             <div className="col-12 col-sm-6">
-              <CampoSelect
-                etiqueta="Responsable"
-                valor={datos.id_usuario_responsable}
-                onChange={cambiar("id_usuario_responsable")}
+              <CampoSeleccionMultiple
+                etiqueta="Responsables"
+                valor={datos.ids_responsables}
+                onChange={cambiar("ids_responsables")}
                 opciones={aOpciones(integrantes.datos, "id_usuario", "nombre_usuario")}
                 vacio="Sin asignar"
-                error={errores.id_usuario_responsable}
+                error={errores.ids_responsables}
+                ayuda={datos.id_proyecto ? "Podés elegir más de uno" : "Elegí primero el proyecto"}
                 disabled={!datos.id_proyecto}
-                helperText={errores.id_usuario_responsable || (datos.id_proyecto ? "Integrantes del proyecto" : "Elegí primero el proyecto")}
               />
             </div>
             <div className="col-12 col-sm-6">

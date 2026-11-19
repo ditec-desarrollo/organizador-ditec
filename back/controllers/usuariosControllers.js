@@ -14,6 +14,10 @@ export const listarUsuarios = async (req, res) => {
   res.json(await usuariosService.listar(filtrosUsuario(req.query)));
 };
 
+export const listarEtiquetables = async (req, res) => {
+  res.json(await usuariosService.listarEtiquetables());
+};
+
 export const buscarPersona = async (req, res) => {
   res.json(await usuariosService.buscarPersona(documentoDePersona(req.params)));
 };

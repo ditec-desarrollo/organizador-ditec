@@ -14,11 +14,12 @@ export const obtener = async (usuario, id_proyecto) => {
   return { ...proyecto, integrantes, puede_gestionar: puedeGestionar };
 };
 
-// Quien crea el proyecto queda como integrante: así un supervisor ya lo puede gestionar.
+// Quien crea el proyecto queda como integrante (así un supervisor ya lo puede gestionar) y como responsable.
 export const crear = async (usuario, datos) => {
   const id_proyecto = await enTransaccion(async (connection) => {
     const id = await proyectosRepository.crear({ ...datos, id_usuario_alta: usuario.id_usuario }, connection);
     await proyectosRepository.agregarIntegrante(id, usuario.id_usuario, usuario.id_usuario, connection);
+    await proyectosRepository.marcarResponsable(id, usuario.id_usuario, 1, connection);
     await actividadRepository.registrar(
       { id_usuario: usuario.id_usuario, accion: ACCIONES.PROYECTO_CREADO, id_proyecto: id, descripcion: `creó el proyecto "${datos.nombre_proyecto}"` },
       connection,
@@ -84,6 +85,33 @@ export const agregarIntegrante = async (usuario, id_proyecto, id_usuario) => {
         accion: ACCIONES.INTEGRANTE_AGREGADO,
         id_proyecto,
         descripcion: `sumó a ${nuevo.nombre_persona} ${nuevo.apellido_persona} al proyecto "${proyecto.nombre_proyecto}"`,
+      },
+      connection,
+    );
+  });
+  return proyectosRepository.listarIntegrantes(id_proyecto);
+};
+
+// Marca o desmarca a un integrante como responsable del proyecto. Puede haber varios.
+// Es un dato informativo: los permisos siguen dependiendo del rol.
+export const marcarResponsable = async (usuario, id_proyecto, id_usuario, es_responsable) => {
+  const { proyecto } = await exigirGestionDeProyecto(usuario, id_proyecto);
+  exigirProyectoActivo(proyecto);
+  if (!(await proyectosRepository.esIntegrante(id_proyecto, id_usuario))) throw noEncontrado("Ese usuario no es integrante del proyecto");
+
+  const integrante = await usuariosRepository.obtener(id_usuario);
+  const nombre = `${integrante.nombre_persona} ${integrante.apellido_persona}`;
+  await enTransaccion(async (connection) => {
+    await proyectosRepository.marcarResponsable(id_proyecto, id_usuario, es_responsable, connection);
+    await actividadRepository.registrar(
+      {
+        id_usuario: usuario.id_usuario,
+        accion: ACCIONES.PROYECTO_EDITADO,
+        id_proyecto,
+        descripcion:
+          es_responsable === 1
+            ? `marcó a ${nombre} como responsable del proyecto "${proyecto.nombre_proyecto}"`
+            : `quitó a ${nombre} como responsable del proyecto "${proyecto.nombre_proyecto}"`,
       },
       connection,
     );

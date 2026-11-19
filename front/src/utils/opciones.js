@@ -3,6 +3,10 @@
 export const aOpciones = (lista, campoValor, campoTexto) =>
   (lista ?? []).map((item) => ({ valor: item[campoValor], texto: item[campoTexto] }));
 
+// Nombres de los responsables de una tarea, separados por coma (o "Sin asignar").
+export const nombresDeResponsables = (responsables = []) =>
+  responsables.length === 0 ? "Sin asignar" : responsables.map((responsable) => responsable.nombre_usuario).join(", ");
+
 // Un select vacío manda "" ; la API espera null.
 export const oNull = (valor) => (valor === "" || valor === undefined ? null : valor);
 

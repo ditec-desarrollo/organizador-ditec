@@ -59,13 +59,13 @@ export const marcarTodasLeidas = async (id_usuario) => {
   return resultado.affectedRows;
 };
 
-// Avisa al responsable de cada tarea abierta que vence dentro de `dias` días (o que ya venció).
+// Avisa a cada responsable de cada tarea abierta que vence dentro de `dias` días (o que ya venció).
 // fecha_referencia guarda el vencimiento avisado: no se repite el aviso salvo que la fecha cambie.
-export const generarAvisosDeVencimiento = async (dias) => {
+export const generarAvisosDeVencimiento = async (dias, connection) => {
   const resultado = await consultar(
     `INSERT INTO notificacion (id_usuario, id_tnotificacion, id_tarea, id_proyecto, texto, fecha_referencia)
      SELECT
-       t.id_usuario_responsable,
+       tr.id_usuario,
        ?,
        t.id_tarea,
        t.id_proyecto,
@@ -81,18 +81,20 @@ export const generarAvisosDeVencimiento = async (dias) => {
      FROM tarea t
      INNER JOIN estado_tarea et ON et.id_etarea = t.id_etarea
      INNER JOIN proyecto pr ON pr.id_proyecto = t.id_proyecto
-     INNER JOIN usuario u ON u.id_usuario = t.id_usuario_responsable AND u.habilita = 1
+     INNER JOIN tarea_responsable tr ON tr.id_tarea = t.id_tarea AND tr.habilita = 1
+     INNER JOIN usuario u ON u.id_usuario = tr.id_usuario AND u.habilita = 1
      WHERE t.habilita = 1 AND t.archivada = 0 AND et.es_final = 0
        AND pr.habilita = 1 AND pr.archivado = 0
        AND t.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
        AND NOT EXISTS (
          SELECT 1 FROM notificacion n
          WHERE n.id_tarea = t.id_tarea
-           AND n.id_usuario = t.id_usuario_responsable
+           AND n.id_usuario = tr.id_usuario
            AND n.id_tnotificacion = ?
            AND n.fecha_referencia = t.fecha_vencimiento
        )`,
     [TIPOS_NOTIFICACION.PROXIMA_A_VENCER, dias, TIPOS_NOTIFICACION.PROXIMA_A_VENCER],
+    connection,
   );
   return resultado.affectedRows;
 };

@@ -1,9 +1,9 @@
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import { clasePrioridad } from "../../utils/estados";
 import { alertaVencimiento, textoVencimiento } from "../../utils/fechas";
-import AvatarUsuario from "../ui/AvatarUsuario";
 import BarraAvance from "../ui/BarraAvance";
 import { ChipPrioridad } from "../ui/Chips";
+import ResponsablesTarea from "../ui/ResponsablesTarea";
 
 const CLASE_VENCIMIENTO = { vencida: "org-dato--alerta", proxima: "org-dato--aviso" };
 
@@ -39,10 +39,7 @@ const TarjetaTarea = ({ tarea, mostrarProyecto, onAbrir, arrastre, arrastrando =
     <BarraAvance valor={tarea.porcentaje_avance} />
 
     <div className="org-tarjeta__fila">
-      <span className="org-tarjeta__responsable">
-        <AvatarUsuario nombre={tarea.nombre_responsable} tamano={22} />
-        <span>{tarea.nombre_responsable || "Sin asignar"}</span>
-      </span>
+      <ResponsablesTarea responsables={tarea.responsables} />
     </div>
   </article>
 );

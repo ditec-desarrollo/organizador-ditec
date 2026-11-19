@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip } from "@mui/material";
+import { Button, IconButton, Paper, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip } from "@mui/material";
 import PersonAddAltRoundedIcon from "@mui/icons-material/PersonAddAltRounded";
 import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
 import { confirmarBorrado } from "../../common/alerta";
@@ -11,7 +11,8 @@ import { CampoSelect } from "../ui/Campos";
 import { ChipNeutro } from "../ui/Chips";
 import { EstadoVacio } from "../ui/Estados";
 
-// Integrantes de un proyecto. Quien gestiona el proyecto puede sumar y quitar.
+// Integrantes de un proyecto. Quien gestiona el proyecto puede sumar, quitar y marcar responsables.
+// Puede haber varios responsables; es un dato informativo, no cambia lo que cada uno puede hacer.
 const IntegrantesProyecto = ({ proyecto }) => {
   const { refrescar } = useDatos();
   const puedeGestionar = proyecto.puede_gestionar && proyecto.archivado !== 1;
@@ -35,6 +36,15 @@ const IntegrantesProyecto = ({ proyecto }) => {
       avisarError(error);
     } finally {
       setGuardando(false);
+    }
+  };
+
+  const marcarResponsable = async (integrante, es_responsable) => {
+    try {
+      await proyectosApi.marcarResponsable(proyecto.id_proyecto, integrante.id_usuario, es_responsable);
+      refrescar();
+    } catch (error) {
+      avisarError(error);
     }
   };
 
@@ -89,6 +99,7 @@ const IntegrantesProyecto = ({ proyecto }) => {
               <TableRow>
                 <TableCell>Nombre</TableCell>
                 <TableCell>Rol</TableCell>
+                <TableCell>Responsable</TableCell>
                 <TableCell align="right">Tareas abiertas</TableCell>
                 {puedeGestionar && <TableCell align="right">Acciones</TableCell>}
               </TableRow>
@@ -102,6 +113,20 @@ const IntegrantesProyecto = ({ proyecto }) => {
                   </TableCell>
                   <TableCell>
                     <ChipNeutro>{integrante.nombre_tusuario}</ChipNeutro>
+                  </TableCell>
+                  <TableCell>
+                    {puedeGestionar ? (
+                      <Switch
+                        size="small"
+                        checked={integrante.es_responsable === 1}
+                        onChange={(evento) => marcarResponsable(integrante, evento.target.checked ? 1 : 0)}
+                        inputProps={{ "aria-label": `${integrante.nombre_usuario} es responsable del proyecto` }}
+                      />
+                    ) : integrante.es_responsable === 1 ? (
+                      <span className="org-chip org-color--azul">Responsable</span>
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
                   <TableCell align="right">{integrante.tareas_abiertas}</TableCell>
                   {puedeGestionar && (

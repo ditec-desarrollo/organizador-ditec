@@ -32,7 +32,11 @@ export const resumenTareas = async (usuario, { soloMias, diasProximas }) => {
      INNER JOIN proyecto pr ON pr.id_proyecto = t.id_proyecto
      WHERE t.habilita = 1 AND t.archivada = 0 AND pr.habilita = 1 AND pr.archivado = 0
        AND ${visibles.sql}
-       ${soloMias ? "AND t.id_usuario_responsable = ?" : ""}`,
+       ${
+         soloMias
+           ? "AND EXISTS (SELECT 1 FROM tarea_responsable tr WHERE tr.id_tarea = t.id_tarea AND tr.id_usuario = ? AND tr.habilita = 1)"
+           : ""
+       }`,
     params,
   );
 

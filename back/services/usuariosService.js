@@ -25,6 +25,9 @@ export const estadoDeSesion = async (id_persona) => {
 
 export const listar = (filtros) => usuariosRepository.listar({ soloHabilitados: filtros.solo_habilitados === 1 });
 
+// Usuarios que se pueden etiquetar en un comentario (solo id y nombre).
+export const listarEtiquetables = () => usuariosRepository.listarEtiquetables();
+
 // Busca una persona de Ciudad Digital por CUIL para darla de alta como usuario.
 export const buscarPersona = async (documento) => {
   const persona = await usuariosRepository.buscarPersonaPorDocumento(documento);

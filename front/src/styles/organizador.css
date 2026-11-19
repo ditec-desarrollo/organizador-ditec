@@ -491,6 +491,53 @@
   white-space: nowrap;
 }
 
+/* Avatares superpuestos (varios responsables) */
+.org-avatares {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.org-avatares > * + * {
+  margin-left: -6px;
+}
+.org-avatares .MuiAvatar-root {
+  box-shadow: 0 0 0 2px var(--cd-surface);
+}
+.org-avatares__mas {
+  padding-left: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--cd-text-2);
+}
+.org-proyecto__responsables {
+  font-size: 0.78rem;
+  color: var(--cd-text-2);
+  min-width: 0;
+  white-space: normal;
+}
+.org-proyecto__responsables span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Menciones (@usuario) en los comentarios */
+.org-mencion {
+  padding: 0 4px;
+  border-radius: 6px;
+  background: var(--cd-accent-suave);
+  color: var(--cd-accent-fuerte);
+  font-weight: 600;
+}
+.org-menciones {
+  min-width: 240px;
+  max-width: min(360px, calc(100vw - 32px));
+  margin-bottom: 6px;
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radio-md);
+  box-shadow: var(--cd-sombra-md);
+}
+
 /* ---------- Detalle de tarea ---------- */
 .org-ficha {
   display: grid;

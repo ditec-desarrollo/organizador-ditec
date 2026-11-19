@@ -149,6 +149,10 @@ const ProyectoDetalle = () => {
                     </dd>
                   </div>
                   <div>
+                    <dt>Responsables</dt>
+                    <dd>{proyecto.nombres_responsables || "Sin definir"}</dd>
+                  </div>
+                  <div>
                     <dt>Creado por</dt>
                     <dd>{proyecto.nombre_creador}</dd>
                   </div>

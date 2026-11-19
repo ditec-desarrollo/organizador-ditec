@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { Validador, esFechaValida, idDeRuta } from "../utils/validador.js";
 import CustomError from "../utils/customError.js";
 
-const { datosTareaNueva, datosActualizacion, datosMover, filtrosTarea } = await import("../validations/tareasValidation.js");
+const { datosTareaNueva, datosActualizacion, datosMover, datosComentario, filtrosTarea } = await import("../validations/tareasValidation.js");
+const { mencionadosEnTexto } = await import("../utils/menciones.js");
 const { datosProyecto } = await import("../validations/proyectosValidation.js");
 const { documentoDePersona, datosUsuario } = await import("../validations/usuariosValidation.js");
 
@@ -56,11 +57,41 @@ test("tarea nueva: exige proyecto, título y prioridad; valida el orden de las f
   const errores = erroresDe(() => datosTareaNueva({ titulo: "ab", fecha_inicio: "2026-12-10", fecha_vencimiento: "2026-12-01" }));
   assert.deepEqual(Object.keys(errores).sort(), ["fecha_vencimiento", "id_prioridad", "id_proyecto", "titulo"]);
 
-  const datos = datosTareaNueva({ id_proyecto: 3, titulo: " Relevar requisitos ", id_prioridad: "2", id_usuario_responsable: "" });
+  const datos = datosTareaNueva({ id_proyecto: 3, titulo: " Relevar requisitos ", id_prioridad: "2" });
   assert.equal(datos.titulo, "Relevar requisitos");
   assert.equal(datos.id_prioridad, 2);
-  assert.equal(datos.id_usuario_responsable, null);
+  assert.deepEqual(datos.ids_responsables, [], "sin responsables = sin asignar");
   assert.equal(datos.descripcion, null);
+});
+
+test("tarea: acepta varios responsables, sin repetidos, y rechaza una lista inválida", () => {
+  const base = { id_proyecto: 1, titulo: "Tarea", id_prioridad: 2 };
+  assert.deepEqual(datosTareaNueva({ ...base, ids_responsables: [4, "7", 4] }).ids_responsables, [4, 7]);
+  assert.deepEqual(datosTareaNueva({ ...base, ids_responsables: [] }).ids_responsables, []);
+  assert.ok(erroresDe(() => datosTareaNueva({ ...base, ids_responsables: "4,7" })).ids_responsables);
+  assert.ok(erroresDe(() => datosTareaNueva({ ...base, ids_responsables: [4, -1] })).ids_responsables);
+});
+
+test("comentario: el texto es obligatorio y las menciones son una lista opcional de ids", () => {
+  assert.deepEqual(datosComentario({ comentario: " Hola " }), { comentario: "Hola", ids_mencionados: [] });
+  assert.deepEqual(datosComentario({ comentario: "Hola", ids_mencionados: [3, 3, 9] }).ids_mencionados, [3, 9]);
+  assert.ok(erroresDe(() => datosComentario({ ids_mencionados: [3] })).comentario);
+  assert.ok(erroresDe(() => datosComentario({ comentario: "Hola", ids_mencionados: ["x"] })).ids_mencionados);
+});
+
+test("menciones: solo cuentan los usuarios cuyo @Nombre figura en el texto", () => {
+  const usuarios = [
+    { id_usuario: 1, nombre_usuario: "Ana Prueba" },
+    { id_usuario: 2, nombre_usuario: "Bruno Ejemplo" },
+    { id_usuario: 3, nombre_usuario: "" },
+    { id_usuario: 4, nombre_usuario: null },
+  ];
+  const ids = (texto) => mencionadosEnTexto(texto, usuarios).map((u) => u.id_usuario);
+  assert.deepEqual(ids("Hola @Ana Prueba, ¿lo ves?"), [1]);
+  assert.deepEqual(ids("@ana prueba y @BRUNO EJEMPLO"), [1, 2], "no distingue mayúsculas");
+  assert.deepEqual(ids("Ana Prueba sin arroba"), [], "sin @ no es una mención");
+  assert.deepEqual(ids("Hola @Ana"), [], "el nombre tiene que estar completo");
+  assert.deepEqual(ids("Texto con @ suelto"), [], "un usuario sin nombre nunca coincide");
 });
 
 test("tarea nueva: prioridad, estado y porcentaje fuera de rango se rechazan", () => {
