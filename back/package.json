@@ -10,6 +10,7 @@
     "migrar": "node migrations/migrar.js",
     "migrar:estado": "node migrations/migrar.js --estado",
     "usuario:crear": "node scripts/crearUsuario.js",
+    "email:probar": "node scripts/probarEmail.js",
     "test": "node --test",
     "test:integracion": "node scripts/pruebaIntegracion.js"
   },

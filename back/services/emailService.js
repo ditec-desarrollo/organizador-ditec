@@ -1,23 +1,37 @@
+import { lookup } from "node:dns/promises";
 import nodemailer from "nodemailer";
 import * as usuariosRepository from "../repositories/usuariosRepository.js";
 import { armarEmailDeMencion, esEmailValido } from "../utils/emailMencion.js";
 import { env } from "../config/env.js";
 
-// Misma cuenta y configuración que el back de Ciudad Digital. Se crea recién con el primer envío.
-let transporte;
-const obtenerTransporte = () => {
-  transporte ??= nodemailer.createTransport({
-    service: "gmail",
+// Misma cuenta que el back de Ciudad Digital (Gmail).
+const SMTP_HOST = "smtp.gmail.com";
+
+// La dirección de Gmail se resuelve acá, con el resolver del sistema operativo (el mismo que usan
+// curl o ping), y a nodemailer se le pasa la IP. Nodemailer consulta el DNS por su cuenta, sin pasar
+// por el sistema, y en el servidor de producción esa consulta no recibe respuesta
+// ("DNS lookup for smtp.gmail.com timed out"). `servername` mantiene la validación del certificado.
+const crearTransporte = async () => {
+  const { address } = await lookup(SMTP_HOST, { family: 4 });
+  return nodemailer.createTransport({
+    host: address,
+    port: 465,
+    secure: true,
+    tls: { servername: SMTP_HOST },
     auth: { user: env.email.usuario, pass: env.email.password },
+    // Si el servidor no llega a Gmail, que falle rápido y con un error claro en vez de quedar esperando minutos.
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 30000,
   });
-  return transporte;
 };
 
 // Nunca lanza: un mail que no sale no tiene que romper lo que el usuario estaba haciendo.
 export const enviarEmail = async ({ para, asunto, texto, html }) => {
   if (!env.email.activo) return false;
   try {
-    await obtenerTransporte().sendMail({
+    const transporte = await crearTransporte();
+    await transporte.sendMail({
       from: { name: env.email.remitente, address: env.email.usuario },
       to: para,
       subject: asunto,
