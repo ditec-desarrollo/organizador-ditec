@@ -7,7 +7,7 @@ import CustomError from "../utils/customError.js";
 const { datosTareaNueva, datosActualizacion, datosMover, datosComentario, filtrosTarea } = await import("../validations/tareasValidation.js");
 const { mencionadosEnTexto } = await import("../utils/menciones.js");
 const { datosProyecto } = await import("../validations/proyectosValidation.js");
-const { documentoDePersona, datosUsuario } = await import("../validations/usuariosValidation.js");
+const { documentoDePersona, datosUsuario, palabrasDeBusqueda } = await import("../validations/usuariosValidation.js");
 
 const erroresDe = (funcion) => {
   try {
@@ -141,4 +141,12 @@ test("usuarios: el CUIL son 11 números y el rol sale del catálogo", () => {
   assert.equal(documentoDePersona({ documento: "20123456789" }), "20123456789");
   assert.ok(erroresDe(() => documentoDePersona({ documento: "20-12345678-9" })).documento);
   assert.ok(erroresDe(() => datosUsuario({ id_tusuario: 7, habilita: 1 })).id_tusuario);
+});
+
+test("usuarios: la búsqueda de personas pide al menos 3 caracteres y la separa en palabras", () => {
+  assert.deepEqual(palabrasDeBusqueda({ buscar: "  Pérez   juan " }), ["Pérez", "juan"]);
+  assert.deepEqual(palabrasDeBusqueda({ buscar: "12345" }), ["12345"]);
+  assert.ok(erroresDe(() => palabrasDeBusqueda({ buscar: "ab" })).buscar);
+  assert.ok(erroresDe(() => palabrasDeBusqueda({})).buscar);
+  assert.equal(palabrasDeBusqueda({ buscar: "a b c d e f g h" }).length, 6);
 });

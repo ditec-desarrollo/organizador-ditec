@@ -61,4 +61,7 @@ export const cerrarPool = async () => {
 // Tabla de personas de Ciudad Digital (otra base del mismo servidor), lista para usar en un JOIN.
 export const TABLA_PERSONA = `\`${env.dbCiuDigital}\`.persona`;
 
+// Legajos municipales de Ciudad Digital (N° de afiliado). Una persona puede tener más de uno.
+export const TABLA_EMPLEADO = `\`${env.dbCiuDigital}\`.empleado`;
+
 export default conectarDBOrganizador;

@@ -15,6 +15,9 @@ import { proyectosApi } from "../services/api";
 import { aOpciones } from "../utils/opciones";
 import { esGestor } from "../utils/permisos";
 
+// La lista se actualiza sola para ver el avance que cargan los demás sin recargar la página.
+const CADA_UN_MINUTO = 60 * 1000;
+
 const GrillaEsqueleto = () => (
   <div className="org-proyectos" aria-busy="true">
     {[1, 2, 3].map((n) => (
@@ -36,6 +39,7 @@ const Proyectos = () => {
   const consulta = useConsulta(
     () => proyectosApi.listar({ buscar: buscarDemorado, id_eproyecto: estado, archivado: archivados ? 1 : 0 }),
     [buscarDemorado, estado, archivados],
+    { refrescarCada: CADA_UN_MINUTO },
   );
   const puedeCrear = esGestor(usuario);
   const hayFiltros = buscar !== "" || estado !== "" || archivados;

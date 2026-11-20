@@ -679,6 +679,344 @@
   overflow-y: auto;
 }
 
+/* ---------- Vista para televisión (/tv) ----------
+   Todo el panel entra en una pantalla, sin scroll. Los tamaños van en `em` sobre una letra base
+   atada al tamaño de la pantalla: se ve igual en 1920×1080 y en 4K, y se lee desde lejos. */
+.org-tv {
+  --tv-espacio: 0.8em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tv-espacio);
+  height: calc(100dvh - var(--cd-nav-alto) - 2px);
+  padding: var(--tv-espacio) 1.1em;
+  overflow: hidden;
+  font-size: clamp(13px, min(0.95vw, 1.7vh), 44px);
+}
+/* En pantalla completa se oculta el header de la app y el panel ocupa toda la tele. */
+body.org-tv-completa .cd-nav {
+  display: none;
+}
+body.org-tv-completa .org-tv {
+  height: 100dvh;
+}
+
+.org-tv-cabecera {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 1.4em;
+}
+.org-tv-cabecera__titulos {
+  flex: 1;
+  min-width: 0;
+}
+.org-tv-cabecera__titulo {
+  margin: 0;
+  font-size: 1.7em;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--cd-text);
+}
+.org-tv-cabecera__sub {
+  font-size: 0.9em;
+  color: var(--cd-text-2);
+}
+.org-tv-reloj {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+.org-tv-reloj__hora {
+  font-size: 2em;
+  font-weight: 700;
+  color: var(--cd-text);
+  font-variant-numeric: tabular-nums;
+}
+.org-tv-reloj__fecha {
+  font-size: 0.85em;
+  color: var(--cd-text-2);
+}
+.org-tv-reloj__fecha::first-letter {
+  text-transform: uppercase;
+}
+
+.org-tv-indicadores {
+  flex: none;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--tv-espacio);
+}
+.org-tv-indicador {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.8em;
+  padding: 0.8em 1em;
+  min-width: 0;
+}
+.org-tv-indicador__icono {
+  grid-row: span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.8em;
+  height: 2.8em;
+  border-radius: var(--cd-radio-sm);
+  background: var(--org-fondo);
+  color: var(--org-color);
+}
+.org-tv-indicador__icono .MuiSvgIcon-root {
+  font-size: 1.7em;
+}
+.org-tv-indicador__valor {
+  font-size: 2.4em;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--cd-text);
+  font-variant-numeric: tabular-nums;
+}
+.org-color--rojo > .org-tv-indicador__valor,
+.org-color--naranja > .org-tv-indicador__valor {
+  color: var(--org-color);
+}
+.org-tv-indicador__texto {
+  font-size: 0.85em;
+  line-height: 1.2;
+  color: var(--cd-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-tv-grilla {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--tv-espacio);
+}
+.org-tv-bloque {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.9em 1.1em 0.7em;
+  border-top: 0.25em solid var(--org-color);
+}
+.org-tv-bloque__cabecera {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8em;
+  margin-bottom: 0.4em;
+}
+.org-tv-bloque__titulo {
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 600;
+  color: var(--cd-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.org-tv-bloque__total {
+  flex: none;
+  min-width: 2em;
+  padding: 0.1em 0.6em;
+  border-radius: 999px;
+  background: var(--org-fondo);
+  color: var(--org-color);
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.org-tv-lista {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+}
+/* El alto de la fila es fijo: de eso depende la cuenta de cuántas entran (useFilasQueEntran). */
+.org-tv-fila {
+  display: flex;
+  align-items: center;
+  height: 3.7em;
+  border-top: 1px solid var(--cd-border);
+  overflow: hidden;
+}
+.org-tv-fila:first-child {
+  border-top-color: transparent;
+}
+.org-tv-fila--alta {
+  height: 4.9em;
+}
+.org-tv-fila__boton {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  width: 100%;
+  height: 100%;
+  padding: 0 0.3em;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.org-tv-fila__boton:hover {
+  background: var(--cd-hover);
+}
+.org-tv-fila__cuerpo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  padding: 0 0.3em;
+}
+.org-tv-fila__boton > .org-tv-fila__cuerpo {
+  padding: 0;
+}
+.org-tv-fila__linea {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  min-width: 0;
+}
+.org-tv-fila__linea > .org-avance,
+.org-tv-fila__linea > .org-tv-fila__texto {
+  flex: 1;
+}
+.org-tv-fila__texto {
+  font-size: 1em;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--cd-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.org-tv-fila__texto--dos {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  font-weight: 400;
+}
+.org-tv-fila__meta {
+  font-size: 0.8em;
+  line-height: 1.3;
+  color: var(--cd-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.org-tv-fila__meta--fija {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+/* Los componentes compartidos miden en rem: acá se los lleva a la escala de la tele. */
+.org-tv .org-chip {
+  flex: none;
+  font-size: 0.72em;
+  padding: 0.2em 0.8em;
+}
+.org-tv .org-avance {
+  gap: 0.6em;
+}
+.org-tv .org-avance__pista {
+  height: 0.5em;
+}
+.org-tv .org-avance__valor {
+  font-size: 0.8em;
+  min-width: 2.8em;
+}
+.org-tv .MuiButton-root {
+  font-size: 0.85em;
+}
+.org-tv-vacio {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--cd-text-3);
+  text-align: center;
+}
+.org-tv-bloque__pie {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8em;
+  padding-top: 0.5em;
+  border-top: 1px solid var(--cd-border);
+  font-size: 0.8em;
+  color: var(--cd-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.org-tv-puntos {
+  display: inline-flex;
+  gap: 0.4em;
+}
+.org-tv-punto {
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: var(--cd-border);
+}
+.org-tv-punto--activo {
+  background: var(--org-color);
+}
+.org-tv-vermas {
+  padding: 0.15em 0.7em;
+  border: 1px solid var(--cd-border);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--cd-accent-fuerte);
+  cursor: pointer;
+}
+.org-tv-vermas:hover {
+  background: var(--cd-hover);
+}
+
+/* En pantallas angostas o apaisadas bajas (notebook chica, celular) no tiene sentido forzar una sola
+   pantalla: vuelve a ser una página con scroll. */
+@media (max-width: 1100px), (max-height: 560px) {
+  .org-tv {
+    height: auto;
+    overflow: visible;
+    font-size: 15px;
+    padding-bottom: 32px;
+  }
+  .org-tv-cabecera {
+    flex-wrap: wrap;
+  }
+  .org-tv-indicadores {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  }
+  .org-tv-grilla {
+    flex: none;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  }
+  .org-tv-lista {
+    flex: none;
+    max-height: 26em;
+  }
+}
+
 /* ---------- Mobile ---------- */
 @media (max-width: 600px) {
   .org-tablero {

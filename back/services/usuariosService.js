@@ -37,6 +37,16 @@ export const buscarPersona = async (documento) => {
   return { ...persona, ya_registrado: Boolean(usuario) };
 };
 
+// Busca personas de Ciudad Digital por N° de afiliado, nombre, apellido, CUIL o email para darlas de alta.
+// Devuelve hasta MAXIMO_PERSONAS; `hay_mas` avisa que conviene afinar la búsqueda.
+export const buscarPersonas = async (palabras) => {
+  const filas = await usuariosRepository.buscarPersonas(palabras);
+  return {
+    personas: filas.slice(0, usuariosRepository.MAXIMO_PERSONAS).map((fila) => ({ ...fila, ya_registrado: Boolean(fila.ya_registrado) })),
+    hay_mas: filas.length > usuariosRepository.MAXIMO_PERSONAS,
+  };
+};
+
 export const crear = async (actor, { id_persona, id_tusuario }) => {
   const persona = await usuariosRepository.obtenerPersona(id_persona);
   if (!persona) throw noEncontrado("La persona no existe en Ciudad Digital");

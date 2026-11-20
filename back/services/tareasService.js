@@ -5,6 +5,7 @@ import * as usuariosRepository from "../repositories/usuariosRepository.js";
 import * as catalogosRepository from "../repositories/catalogosRepository.js";
 import * as actividadRepository from "../repositories/actividadRepository.js";
 import { notificar } from "./notificacionesService.js";
+import { enviarEmailsDeMencion } from "./emailService.js";
 import { accesoATarea, exigirGestionDeProyecto, exigirProyectoActivo, exigirTareaActiva } from "./permisosService.js";
 import { conflicto, datosInvalidos, noAutorizado, noEncontrado } from "../utils/customError.js";
 import { ACCIONES, ESTADOS_TAREA, TIPOS_ACTUALIZACION, TIPOS_NOTIFICACION, esAdmin } from "../utils/constantes.js";
@@ -319,7 +320,7 @@ const resolverMenciones = async (comentario, ids_mencionados) => {
 };
 
 // Puede comentar cualquier integrante del proyecto. Con @ se etiqueta a cualquier usuario:
-// recibe una notificación y, si no era integrante del proyecto, se lo suma para que pueda ver la tarea.
+// recibe una notificación (y un mail, si EMAIL_ACTIVO) y, si no era integrante del proyecto, se lo suma para que pueda ver la tarea.
 export const agregarComentario = async (usuario, id_tarea, { comentario, ids_mencionados }) => {
   const { tarea, proyecto } = await accesoATarea(usuario, id_tarea);
   exigirProyectoActivo(proyecto);
@@ -382,6 +383,19 @@ export const agregarComentario = async (usuario, id_tarea, { comentario, ids_men
       connection,
     );
   });
+
+  // Ya confirmado el comentario, se avisa también por mail a los etiquetados. Va sin await a propósito
+  // (ver emailService): la respuesta no espera al SMTP.
+  if (idsMencionados.length > 0) {
+    enviarEmailsDeMencion({
+      id_usuario_origen: usuario.id_usuario,
+      ids_mencionados: idsMencionados,
+      id_tarea,
+      titulo: tarea.titulo,
+      proyecto: proyecto.nombre_proyecto,
+      comentario,
+    });
+  }
   return tareasRepository.listarComentarios(id_tarea);
 };
 

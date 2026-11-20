@@ -5,7 +5,10 @@ import { useDatos } from "../context/contextos";
 //   const { datos, cargando, error, recargar } = useConsulta(() => proyectosApi.listar(filtros), [filtros]);
 // Vuelve a pedir cuando cambian las `dependencias` o cuando otra pantalla avisa un cambio (refrescar()).
 // Si llegan respuestas fuera de orden, solo se usa la del último pedido.
-export const useConsulta = (pedir, dependencias = [], { activa = true } = {}) => {
+// Con `refrescarCada` (milisegundos) además vuelve a pedir sola cada ese tiempo, sin esqueleto ni parpadeo:
+// los datos viejos quedan en pantalla hasta que llegan los nuevos. Con la pestaña oculta no pide;
+// al volver a mirarla se pone al día.
+export const useConsulta = (pedir, dependencias = [], { activa = true, refrescarCada = 0 } = {}) => {
   const { version } = useDatos();
   const [estado, setEstado] = useState({ datos: null, cargando: activa, error: null });
   const [intento, setIntento] = useState(0);
@@ -34,6 +37,25 @@ export const useConsulta = (pedir, dependencias = [], { activa = true } = {}) =>
   }, [...dependencias, version, intento, activa]);
 
   const recargar = useCallback(() => setIntento((n) => n + 1), []);
+
+  useEffect(() => {
+    if (!activa || !refrescarCada) return;
+    let ultimo = Date.now();
+    const actualizar = () => {
+      if (document.visibilityState !== "visible") return;
+      ultimo = Date.now();
+      recargar();
+    };
+    const alVolver = () => {
+      if (Date.now() - ultimo >= refrescarCada) actualizar();
+    };
+    const intervalo = setInterval(actualizar, refrescarCada);
+    document.addEventListener("visibilitychange", alVolver);
+    return () => {
+      clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", alVolver);
+    };
+  }, [activa, refrescarCada, recargar]);
   const setDatos = useCallback((datos) => setEstado((anterior) => ({ ...anterior, datos })), []);
 
   return { ...estado, recargar, setDatos };

@@ -3,6 +3,7 @@ import { soloAdmin, soloGestores, usuarioHabilitado } from "../middlewares/verif
 import {
   actualizarUsuario,
   buscarPersona,
+  buscarPersonas,
   crearUsuario,
   getAuthStatus,
   listarEtiquetables,
@@ -19,6 +20,8 @@ router.get("/", soloGestores, listarUsuarios);
 // Lista mínima (id y nombre) para etiquetar con @ en los comentarios: la puede pedir cualquier usuario.
 router.get("/etiquetables", usuarioHabilitado, listarEtiquetables);
 router.get("/persona/:documento", soloAdmin, buscarPersona);
+// Para el alta: personas de Ciudad Digital por N° de afiliado, nombre, apellido, CUIL o email (?buscar=).
+router.get("/personas", soloAdmin, buscarPersonas);
 router.post("/", soloAdmin, crearUsuario);
 router.put("/:id_usuario", soloAdmin, actualizarUsuario);
 

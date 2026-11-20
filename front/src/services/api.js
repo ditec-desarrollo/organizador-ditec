@@ -14,7 +14,8 @@ const del = (url) => axios.delete(url).then((r) => r.data);
 export const sesionApi = {
   estado: () => get("/usuarios/authStatus").then((datos) => datos.usuario),
   catalogos: () => get("/catalogos"),
-  dashboard: () => get("/dashboard"),
+  // `amplio`: más filas por lista (vista para televisión).
+  dashboard: ({ amplio = false } = {}) => get("/dashboard", amplio ? { amplio: 1 } : undefined),
   actividad: (filtros) => get("/actividad", filtros),
 };
 
@@ -22,7 +23,8 @@ export const usuariosApi = {
   listar: (filtros) => get("/usuarios", filtros),
   // Lista mínima (id y nombre) para etiquetar con @ en los comentarios.
   etiquetables: () => get("/usuarios/etiquetables"),
-  buscarPersona: (documento) => get(`/usuarios/persona/${documento}`),
+  // Personas de Ciudad Digital por N° de afiliado, nombre, apellido, CUIL o email: { personas, hay_mas }.
+  buscarPersonas: (buscar) => get("/usuarios/personas", { buscar }),
   crear: (datos) => post("/usuarios", datos),
   actualizar: (id_usuario, datos) => put(`/usuarios/${id_usuario}`, datos),
 };

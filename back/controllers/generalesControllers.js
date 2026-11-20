@@ -24,7 +24,8 @@ export const obtenerCatalogos = async (req, res) => {
 };
 
 export const obtenerDashboard = async (req, res) => {
-  res.json(await dashboardService.obtener(req.usuario));
+  // ?amplio=1 lo pide la vista para televisión.
+  res.json(await dashboardService.obtener(req.usuario, { amplio: req.query.amplio === "1" }));
 };
 
 export const listarActividad = async (req, res) => {

@@ -28,7 +28,7 @@ const Indicador = ({ valor, texto, icono, color, onClick }) => (
 );
 
 // Tareas con su vencimiento (vencidas o próximas). Al tocar una se abre el detalle.
-const ListaVencimientos = ({ tareas, vacio, claseFecha }) => {
+export const ListaVencimientos = ({ tareas, vacio, claseFecha }) => {
   const { abrirTarea } = useDatos();
   if (tareas.length === 0) return <EstadoVacio titulo={vacio} icono={<TaskAltRoundedIcon />} />;
   return (
@@ -50,7 +50,7 @@ const ListaVencimientos = ({ tareas, vacio, claseFecha }) => {
   );
 };
 
-const AvanceDeProyectos = ({ proyectos }) => {
+export const AvanceDeProyectos = ({ proyectos }) => {
   const navigate = useNavigate();
   if (proyectos.length === 0) return <EstadoVacio titulo="Todavía no hay proyectos" />;
   return (

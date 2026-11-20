@@ -4,6 +4,7 @@ import ProveedorDatos from "./context/ProveedorDatos";
 import LayoutPrincipal from "./layouts/LayoutPrincipal";
 import PrivateRoute from "./routes/PrivateRoute";
 import Inicio from "./pages/Inicio";
+import InicioTv from "./pages/InicioTv";
 import Proyectos from "./pages/Proyectos";
 import ProyectoDetalle from "./pages/ProyectoDetalle";
 import TableroGeneral from "./pages/TableroGeneral";
@@ -35,6 +36,7 @@ const App = () => (
             <Route element={<PrivateRoute />}>
               <Route path="/" element={<Navigate to="/home" replace />} />
               <Route path="/home" element={<Inicio />} />
+              <Route path="/tv" element={<InicioTv />} />
               <Route path="/proyectos" element={<Proyectos />} />
               <Route path="/proyectos/:id_proyecto" element={<ProyectoDetalle />} />
               <Route path="/tablero" element={<TableroGeneral />} />
