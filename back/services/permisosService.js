@@ -6,7 +6,8 @@ import { esAdmin, esSupervisor } from "../utils/constantes.js";
 // Reglas de acceso, en un solo lugar:
 //   · Administrador: ve y gestiona todo.
 //   · Supervisor: ve y gestiona los proyectos en los que es integrante (queda como integrante al crearlos).
-//   · Colaborador: ve los proyectos en los que es integrante; solo actualiza las tareas que tiene asignadas.
+//   · Colaborador: ve los proyectos en los que es integrante; solo actualiza las tareas de las que es responsable.
+// Ser responsable de un proyecto (proyecto_integrante.es_responsable) es informativo: no cambia permisos.
 
 // Trae el proyecto y qué puede hacer el usuario con él. Corta con 404 si no existe y con 403 si no lo puede ver.
 export const accesoAProyecto = async (usuario, id_proyecto, connection) => {
@@ -27,13 +28,13 @@ export const exigirGestionDeProyecto = async (usuario, id_proyecto, connection) 
 
 // Trae la tarea y qué puede hacer el usuario con ella.
 //   puedeGestionar  -> editar datos, reasignar, archivar
-//   puedeActualizar -> cambiar estado y avance, registrar novedades (quien gestiona o el responsable)
+//   puedeActualizar -> cambiar estado y avance, registrar novedades (quien gestiona o cualquier responsable)
 export const accesoATarea = async (usuario, id_tarea, connection) => {
   const tarea = await tareasRepository.obtener(id_tarea, connection);
   if (!tarea) throw noEncontrado("La tarea no existe");
 
   const { proyecto, puedeGestionar } = await accesoAProyecto(usuario, tarea.id_proyecto, connection);
-  const esResponsable = tarea.id_usuario_responsable === usuario.id_usuario;
+  const esResponsable = tarea.responsables.some((responsable) => responsable.id_usuario === usuario.id_usuario);
 
   return { tarea, proyecto, puedeGestionar, puedeActualizar: puedeGestionar || esResponsable };
 };

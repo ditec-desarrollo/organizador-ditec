@@ -4,12 +4,13 @@ Aplicación web interna de la Dirección de Innovación Tecnológica para organi
 
 ## Qué permite hacer
 
-- **Proyectos:** crearlos, editarlos y archivarlos, con sus integrantes, fechas, estado y avance general.
-- **Tareas:** con responsable, prioridad, estado, fechas de inicio y vencimiento, y porcentaje de avance.
-- **Tablero Kanban:** una columna por estado; las tarjetas se mueven arrastrándolas.
+- **Proyectos:** crearlos, editarlos y archivarlos, con sus integrantes y responsables, fechas, estado y avance general.
+- **Tareas:** con uno o varios responsables, prioridad, estado, fechas de inicio y vencimiento, y porcentaje de avance.
+- **Tablero Kanban:** una columna por estado; las tarjetas se mueven arrastrándolas. Las tareas finalizadas hace más de una semana dejan de mostrarse para que no se llene.
+- **Historial:** todas las tareas finalizadas, para buscar por proyecto, persona o mes.
 - **Seguimiento:** cada cambio de estado o de avance, novedad o dificultad queda en el historial de la tarea, con quién lo hizo y cuándo.
-- **Comentarios** en cada tarea.
-- **Notificaciones internas:** tarea asignada, modificada, comentada, próxima a vencer o con cambio de fecha.
+- **Comentarios** en cada tarea, con la posibilidad de etiquetar a otros usuarios con `@`.
+- **Notificaciones internas:** tarea asignada, modificada, comentada, próxima a vencer o con cambio de fecha, y menciones. Las menciones también se avisan por email.
 - **Panel principal** según el rol: tareas pendientes, en progreso, vencidas y próximas a vencer, avance de los proyectos y actividad reciente.
 - **Búsqueda y filtros** por proyecto, responsable, estado, prioridad y vencimiento.
 

@@ -1,4 +1,4 @@
-import { consultar, TABLA_PERSONA } from "../config/dbOrganizador.js";
+import { consultar, TABLA_EMPLEADO, TABLA_PERSONA } from "../config/dbOrganizador.js";
 
 // Usuario del Organizador + datos de la persona en Ciudad Digital.
 const SELECT_USUARIO = `
@@ -57,11 +57,76 @@ export const buscarPersonaPorDocumento = async (documento) => {
   return filas[0] ?? null;
 };
 
+// Texto sobre el que se busca una persona, sin distinguir mayúsculas ni acentos
+// (mismo criterio que el panel de usuarios de Ciudad Digital).
+const TEXTO_PERSONA = `CONCAT(' ', CONCAT_WS(' ',
+    CONVERT(e.afiliado USING utf8mb4),
+    CONVERT(p.nombre_persona USING utf8mb4), CONVERT(p.apellido_persona USING utf8mb4),
+    CONVERT(p.documento_persona USING utf8mb4),
+    CONVERT(p.email_persona USING utf8mb4)
+  )) COLLATE utf8mb4_general_ci`;
+
+export const MAXIMO_PERSONAS = 20;
+
+// Personas de Ciudad Digital que coinciden con todas las `palabras`: cada una tiene que ser el comienzo
+// del N° de afiliado, del nombre, del apellido, del CUIL o del email. Trae una de más para saber si hay más.
+// `ya_registrado` indica si la persona ya es usuaria del Organizador.
+export const buscarPersonas = (palabras) =>
+  consultar(
+    `SELECT p.id_persona, p.documento_persona, p.nombre_persona, p.apellido_persona, p.email_persona,
+            e.afiliado, (u.id_usuario IS NOT NULL) AS ya_registrado
+     FROM ${TABLA_PERSONA} p
+     LEFT JOIN (
+       SELECT id_persona, GROUP_CONCAT(DISTINCT afiliado ORDER BY habilita DESC, id_empleado DESC SEPARATOR ' / ') AS afiliado
+       FROM ${TABLA_EMPLEADO}
+       GROUP BY id_persona
+     ) e ON e.id_persona = p.id_persona
+     LEFT JOIN usuario u ON u.id_persona = p.id_persona
+     WHERE ${palabras.map(() => `${TEXTO_PERSONA} LIKE ?`).join(" AND ")}
+     ORDER BY CONVERT(p.apellido_persona USING utf8mb4) COLLATE utf8mb4_general_ci,
+              CONVERT(p.nombre_persona USING utf8mb4) COLLATE utf8mb4_general_ci, p.id_persona
+     LIMIT ${MAXIMO_PERSONAS + 1}`,
+    palabras.map((palabra) => `% ${palabra.replace(/[\\%_]/g, "\\$&")}%`),
+  );
+
 export const listar = ({ soloHabilitados = false } = {}) =>
   consultar(
     `${SELECT_USUARIO}
      ${soloHabilitados ? "WHERE u.habilita = 1" : ""}
      ORDER BY p.apellido_persona, p.nombre_persona, u.id_usuario`,
+  );
+
+// Usuarios que se pueden etiquetar en un comentario. La ve cualquier usuario,
+// así que solo lleva el id y el nombre (sin CUIL ni email).
+export const listarEtiquetables = () =>
+  consultar(
+    `SELECT u.id_usuario, ${nombreCompleto("p")} AS nombre_usuario
+     FROM usuario u
+     LEFT JOIN ${TABLA_PERSONA} p ON p.id_persona = u.id_persona
+     WHERE u.habilita = 1
+     ORDER BY p.apellido_persona, p.nombre_persona, u.id_usuario`,
+  );
+
+// Varios usuarios habilitados por id (para validar a quién se etiquetó).
+export const obtenerHabilitados = (ids, connection) =>
+  consultar(
+    `SELECT u.id_usuario, ${nombreCompleto("p")} AS nombre_usuario
+     FROM usuario u
+     LEFT JOIN ${TABLA_PERSONA} p ON p.id_persona = u.id_persona
+     WHERE u.habilita = 1 AND u.id_usuario IN (${ids.map(() => "?").join(", ")})`,
+    ids,
+    connection,
+  );
+
+// Nombre y email de varios usuarios habilitados, para los avisos por mail. Solo para uso interno
+// del back: el email no se devuelve al front.
+export const obtenerParaEmail = (ids) =>
+  consultar(
+    `SELECT u.id_usuario, ${nombreCompleto("p")} AS nombre_usuario, p.email_persona
+     FROM usuario u
+     LEFT JOIN ${TABLA_PERSONA} p ON p.id_persona = u.id_persona
+     WHERE u.habilita = 1 AND u.id_usuario IN (${ids.map(() => "?").join(", ")})`,
+    ids,
   );
 
 export const obtener = async (id_usuario, connection) => {

@@ -7,7 +7,9 @@ import { env } from "../config/env.js";
 
 // Panel principal. Administradores y supervisores ven el estado del equipo
 // (todas las tareas de los proyectos que pueden ver); el colaborador ve lo suyo.
-export const obtener = async (usuario) => {
+// `amplio` (vista para televisión): trae más filas por lista, porque en esa pantalla entran más.
+export const obtener = async (usuario, { amplio = false } = {}) => {
+  const limite = amplio ? 30 : 10;
   const gestor = esGestor(usuario);
   const soloMias = !gestor;
   const diasProximas = env.diasAvisoVencimiento;
@@ -17,10 +19,10 @@ export const obtener = async (usuario) => {
     dashboardRepository.resumenTareas(usuario, { soloMias, diasProximas }),
     dashboardRepository.contarProyectosActivos(usuario),
     proyectosRepository.listar(usuario, {}),
-    tareasRepository.listar(usuario, { ...filtroResponsable, vencimiento: "vencidas", ordenar: "vencimiento", limite: 10 }, diasProximas),
-    tareasRepository.listar(usuario, { ...filtroResponsable, vencimiento: "proximas", ordenar: "vencimiento", limite: 10 }, diasProximas),
+    tareasRepository.listar(usuario, { ...filtroResponsable, vencimiento: "vencidas", ordenar: "vencimiento", limite }, { proximas: diasProximas }),
+    tareasRepository.listar(usuario, { ...filtroResponsable, vencimiento: "proximas", ordenar: "vencimiento", limite }, { proximas: diasProximas }),
     // El colaborador ve las últimas novedades de sus proyectos; el gestor, las de todo lo que gestiona.
-    actividadRepository.listar(usuario, { cantidad: 12 }),
+    actividadRepository.listar(usuario, { cantidad: amplio ? 30 : 12 }),
   ]);
 
   return {

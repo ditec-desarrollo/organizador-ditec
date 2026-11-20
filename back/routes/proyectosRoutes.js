@@ -7,6 +7,7 @@ import {
   crearProyecto,
   listarIntegrantes,
   listarProyectos,
+  marcarResponsable,
   obtenerProyecto,
   quitarIntegrante,
 } from "../controllers/proyectosControllers.js";
@@ -22,6 +23,7 @@ router.patch("/:id_proyecto/archivar", soloGestores, archivarProyecto);
 
 router.get("/:id_proyecto/integrantes", listarIntegrantes);
 router.post("/:id_proyecto/integrantes", soloGestores, agregarIntegrante);
+router.patch("/:id_proyecto/integrantes/:id_usuario", soloGestores, marcarResponsable);
 router.delete("/:id_proyecto/integrantes/:id_usuario", soloGestores, quitarIntegrante);
 
 export default router;

@@ -1,5 +1,17 @@
 import { useState } from "react";
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Switch } from "@mui/material";
+import {
+  Alert,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  List,
+  ListItemButton,
+  ListItemText,
+  Switch,
+} from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useDatos } from "../../context/contextos";
 import { usuariosApi } from "../../services/api";
@@ -9,12 +21,15 @@ import { ROLES } from "../../utils/permisos";
 import { CampoSelect, CampoTexto } from "../ui/Campos";
 
 // Alta (sin `usuario`) o edición de un usuario del Organizador.
-// Las personas vienen de Ciudad Digital: en el alta se busca por CUIL y se le asigna un rol.
+// Las personas vienen de Ciudad Digital: en el alta se busca por N° de afiliado, nombre, apellido,
+// CUIL o email, se elige a la persona entre las coincidencias y se le asigna un rol.
 // Nombre, email y contraseña no se editan acá: son de la cuenta de Ciudad Digital.
 const FormularioUsuario = ({ usuario, onCerrar, onGuardado }) => {
   const esEdicion = Boolean(usuario);
   const { catalogos } = useDatos();
-  const [documento, setDocumento] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  // null = todavía no se buscó · { personas, hay_mas } = lo que devolvió la última búsqueda
+  const [resultado, setResultado] = useState(null);
   const [persona, setPersona] = useState(null);
   const [rol, setRol] = useState(usuario?.id_tusuario ?? ROLES.COLABORADOR);
   const [habilitado, setHabilitado] = useState(usuario ? usuario.habilita === 1 : true);
@@ -23,17 +38,23 @@ const FormularioUsuario = ({ usuario, onCerrar, onGuardado }) => {
   const [guardando, setGuardando] = useState(false);
 
   const buscar = async () => {
-    if (!/^\d{11}$/.test(documento)) {
-      setErrores({ documento: "El CUIL tiene que tener 11 números, sin guiones" });
+    const texto = busqueda.trim();
+    if (texto.length < 3) {
+      setErrores({ buscar: "Escribí al menos 3 caracteres" });
       return;
     }
     setBuscando(true);
     setErrores({});
     setPersona(null);
+    setResultado(null);
     try {
-      setPersona(await usuariosApi.buscarPersona(documento));
+      const encontrado = await usuariosApi.buscarPersonas(texto);
+      setResultado(encontrado);
+      // Si hay una sola persona y se puede dar de alta, queda elegida sin un clic de más.
+      const disponibles = encontrado.personas.filter((p) => !p.ya_registrado);
+      if (encontrado.personas.length === 1 && disponibles.length === 1) setPersona(disponibles[0]);
     } catch (error) {
-      setErrores({ documento: mensajeDeError(error) });
+      setErrores({ buscar: erroresDeCampo(error).buscar ?? mensajeDeError(error) });
     } finally {
       setBuscando(false);
     }
@@ -59,7 +80,7 @@ const FormularioUsuario = ({ usuario, onCerrar, onGuardado }) => {
   const puedeGuardar = esEdicion || (persona && !persona.ya_registrado);
 
   return (
-    <Dialog open onClose={guardando ? undefined : onCerrar} fullWidth maxWidth="xs">
+    <Dialog open onClose={guardando ? undefined : onCerrar} fullWidth maxWidth={esEdicion ? "xs" : "sm"}>
       <form onSubmit={guardar} noValidate>
         <DialogTitle>{esEdicion ? "Editar usuario" : "Nuevo usuario"}</DialogTitle>
         <DialogContent>
@@ -76,12 +97,13 @@ const FormularioUsuario = ({ usuario, onCerrar, onGuardado }) => {
               <>
                 <div className="d-flex gap-2 align-items-start">
                   <CampoTexto
-                    etiqueta="CUIL"
-                    valor={documento}
-                    onChange={(valor) => setDocumento(valor.replace(/\D/g, "").slice(0, 11))}
-                    error={errores.documento}
-                    ayuda="11 números, sin guiones"
-                    inputProps={{ inputMode: "numeric" }}
+                    etiqueta="Buscar persona"
+                    placeholder="Afiliado, nombre, apellido o CUIL"
+                    valor={busqueda}
+                    onChange={setBusqueda}
+                    error={errores.buscar}
+                    ayuda="N° de afiliado, nombre, apellido, CUIL (sin guiones) o email"
+                    inputProps={{ maxLength: 100 }}
                     onKeyDown={(evento) => {
                       if (evento.key === "Enter") {
                         evento.preventDefault();
@@ -94,13 +116,40 @@ const FormularioUsuario = ({ usuario, onCerrar, onGuardado }) => {
                     {buscando ? "Buscando…" : "Buscar"}
                   </Button>
                 </div>
-                {persona && (
-                  <Alert severity={persona.ya_registrado ? "warning" : "success"}>
-                    <strong>
-                      {persona.nombre_persona} {persona.apellido_persona}
-                    </strong>
-                    {persona.ya_registrado ? " ya es usuario del Organizador." : ` · ${persona.email_persona ?? "sin email"}`}
-                  </Alert>
+                {resultado && resultado.personas.length === 0 && (
+                  <Alert severity="warning">No hay ninguna persona registrada en Ciudad Digital que coincida con la búsqueda.</Alert>
+                )}
+                {resultado && resultado.personas.length > 0 && (
+                  <>
+                    <List dense disablePadding aria-label="Personas encontradas" sx={{ maxHeight: 280, overflowY: "auto" }}>
+                      {resultado.personas.map((encontrada) => (
+                        <ListItemButton
+                          key={encontrada.id_persona}
+                          selected={persona?.id_persona === encontrada.id_persona}
+                          disabled={encontrada.ya_registrado}
+                          onClick={() => setPersona(encontrada)}
+                        >
+                          <ListItemText
+                            primary={`${encontrada.nombre_persona ?? ""} ${encontrada.apellido_persona ?? ""}`.trim() || "Sin nombre"}
+                            secondary={[
+                              encontrada.ya_registrado && "Ya es usuario del Organizador",
+                              `CUIL ${encontrada.documento_persona ?? "—"}`,
+                              encontrada.afiliado && `Afiliado ${encontrada.afiliado}`,
+                              encontrada.email_persona,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                    {resultado.hay_mas && (
+                      <Alert severity="info">Hay más coincidencias: se muestran las primeras {resultado.personas.length}. Afiná la búsqueda si no aparece.</Alert>
+                    )}
+                    {!persona && resultado.personas.some((p) => !p.ya_registrado) && (
+                      <span className="org-celda-secundaria">Elegí a la persona que querés dar de alta.</span>
+                    )}
+                  </>
                 )}
               </>
             )}

@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { Paper, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow } from "@mui/material";
 import { useDatos } from "../../context/contextos";
-import { alertaVencimiento, textoVencimiento } from "../../utils/fechas";
+import { alertaVencimiento, mostrarFecha, textoVencimiento } from "../../utils/fechas";
 import BarraAvance from "../ui/BarraAvance";
 import { ChipEstadoTarea, ChipPrioridad } from "../ui/Chips";
 import { EstadoVacio } from "../ui/Estados";
+import ResponsablesTarea from "../ui/ResponsablesTarea";
 
 const CLASE_VENCIMIENTO = { vencida: "org-vencida", proxima: "org-proxima" };
 
 // Lista de tareas en tabla. Al tocar una fila se abre el detalle.
-const TablaTareas = ({ tareas, mostrarProyecto = true }) => {
+//   fecha -> "vencimiento" (por defecto) o "finalizacion": qué fecha muestra la última columna
+//   vacio -> texto cuando no hay tareas
+const TablaTareas = ({ tareas, mostrarProyecto = true, fecha = "vencimiento", vacio = "Probá cambiando los filtros." }) => {
   const { abrirTarea } = useDatos();
   const [pagina, setPagina] = useState(0);
   const [porPagina, setPorPagina] = useState(10);
@@ -17,7 +20,7 @@ const TablaTareas = ({ tareas, mostrarProyecto = true }) => {
   if (tareas.length === 0) {
     return (
       <div className="cd-superficie">
-        <EstadoVacio titulo="No hay tareas" texto="Probá cambiando los filtros." />
+        <EstadoVacio titulo="No hay tareas" texto={vacio} />
       </div>
     );
   }
@@ -33,11 +36,11 @@ const TablaTareas = ({ tareas, mostrarProyecto = true }) => {
         <TableHead>
           <TableRow>
             <TableCell>Tarea</TableCell>
-            <TableCell>Responsable</TableCell>
+            <TableCell>Responsables</TableCell>
             <TableCell>Estado</TableCell>
             <TableCell>Prioridad</TableCell>
             <TableCell sx={{ minWidth: 150 }}>Avance</TableCell>
-            <TableCell>Vencimiento</TableCell>
+            <TableCell>{fecha === "finalizacion" ? "Finalizada" : "Vencimiento"}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -54,7 +57,9 @@ const TablaTareas = ({ tareas, mostrarProyecto = true }) => {
                 <span className="org-celda-principal">{tarea.titulo}</span>
                 {mostrarProyecto && <span className="org-celda-secundaria">{tarea.nombre_proyecto}</span>}
               </TableCell>
-              <TableCell>{tarea.nombre_responsable || "Sin asignar"}</TableCell>
+              <TableCell>
+                <ResponsablesTarea responsables={tarea.responsables} />
+              </TableCell>
               <TableCell>
                 <ChipEstadoTarea id={tarea.id_etarea} nombre={tarea.nombre_etarea} />
               </TableCell>
@@ -64,9 +69,13 @@ const TablaTareas = ({ tareas, mostrarProyecto = true }) => {
               <TableCell>
                 <BarraAvance valor={tarea.porcentaje_avance} />
               </TableCell>
-              <TableCell className={CLASE_VENCIMIENTO[alertaVencimiento(tarea)] ?? ""} sx={{ whiteSpace: "nowrap" }}>
-                {textoVencimiento(tarea)}
-              </TableCell>
+              {fecha === "finalizacion" ? (
+                <TableCell sx={{ whiteSpace: "nowrap" }}>{mostrarFecha(tarea.fecha_finalizacion)}</TableCell>
+              ) : (
+                <TableCell className={CLASE_VENCIMIENTO[alertaVencimiento(tarea)] ?? ""} sx={{ whiteSpace: "nowrap" }}>
+                  {textoVencimiento(tarea)}
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

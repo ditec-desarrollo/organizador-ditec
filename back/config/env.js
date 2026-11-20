@@ -42,6 +42,27 @@ export const env = {
     .map((origen) => origen.trim())
     .filter(Boolean),
   diasAvisoVencimiento: entero("DIAS_AVISO_VENCIMIENTO", 2),
+  // Cuántos días después de finalizada una tarea sigue apareciendo en el tablero.
+  diasFinalizadasEnTablero: entero("DIAS_FINALIZADAS_EN_TABLERO", 7),
+  // Rutas de la clave y el certificado. Si están las dos, el back sirve HTTPS (producción); si no, HTTP.
+  https: {
+    key: opcional("HTTPS_KEY"),
+    cert: opcional("HTTPS_CERT"),
+  },
+  // Aviso por email a quien etiquetan en un comentario. Sale por la misma cuenta que usa el back
+  // de Ciudad Digital (Gmail). Apagado por defecto: en desarrollo no sale ningún mail.
+  email: {
+    activo: opcional("EMAIL_ACTIVO").toLowerCase() === "true",
+    usuario: opcional("EMAIL_USUARIO", "no-reply-cdigital@smt.gob.ar"),
+    password: opcional("PASSWORD_MAIL"),
+    remitente: opcional("EMAIL_REMITENTE", "SMT-Organizador"),
+  },
+  // Dirección pública del front, para el botón del mail. Vacía = el mail sale sin botón.
+  urlFront: opcional("URL_FRONT").replace(/\/+$/, ""),
 };
+
+if (env.email.activo && !env.email.password) {
+  throw new Error("EMAIL_ACTIVO está en true pero falta PASSWORD_MAIL (ver .env.example)");
+}
 
 export default env;

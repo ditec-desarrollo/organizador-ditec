@@ -48,6 +48,7 @@ export const TIPOS_NOTIFICACION = {
   PROXIMA_A_VENCER: 4,
   CAMBIO_VENCIMIENTO: 5,
   AVANCE_REGISTRADO: 6,
+  MENCION: 7,
 };
 
 // Códigos de registro_actividad.accion

@@ -1,6 +1,7 @@
 // Prueba de integración contra la base real (la de back/.env). Recorre el flujo completo:
-// usuarios, proyectos, integrantes, tareas, permisos por rol, seguimiento e historial,
-// tablero (mover y reordenar), comentarios, notificaciones, panel y la API por HTTP.
+// usuarios, proyectos, integrantes y responsables, tareas con varios responsables, permisos por rol,
+// seguimiento e historial, tablero (mover y reordenar), comentarios y menciones, notificaciones,
+// panel y la API por HTTP.
 //
 //   npm run test:integracion
 //
@@ -16,6 +17,8 @@ import { cerrarPool, consultar, obtenerPool } from "../config/dbOrganizador.js";
 import * as usuariosRepository from "../repositories/usuariosRepository.js";
 import * as actividadRepository from "../repositories/actividadRepository.js";
 import * as notificacionesRepository from "../repositories/notificacionesRepository.js";
+import * as proyectosRepository from "../repositories/proyectosRepository.js";
+import * as tareasRepository from "../repositories/tareasRepository.js";
 import * as proyectosService from "../services/proyectosService.js";
 import * as tareasService from "../services/tareasService.js";
 import * as usuariosService from "../services/usuariosService.js";
@@ -24,7 +27,18 @@ import * as dashboardService from "../services/dashboardService.js";
 import { ESTADOS_PROYECTO, ESTADOS_TAREA, PRIORIDADES, ROLES, TIPOS_ACTUALIZACION, TIPOS_NOTIFICACION } from "../utils/constantes.js";
 
 // Tablas que la prueba ensucia, en el orden en que hay que vaciarlas (hijas antes que padres).
-const TABLAS = ["registro_actividad", "notificacion", "tarea_comentario", "tarea_actualizacion", "tarea", "proyecto_integrante", "proyecto", "usuario"];
+const TABLAS = [
+  "registro_actividad",
+  "notificacion",
+  "tarea_comentario_mencion",
+  "tarea_comentario",
+  "tarea_actualizacion",
+  "tarea_responsable",
+  "tarea",
+  "proyecto_integrante",
+  "proyecto",
+  "usuario",
+];
 
 // "Hoy" es el del servidor de base de datos (el que usan las consultas), no el de esta máquina.
 let hoy;
@@ -115,6 +129,8 @@ const probarServicios = async () => {
     assert.equal(proyecto.fecha_inicio, datosProyecto.fecha_inicio, "la fecha se corrió");
     assert.equal(proyecto.puede_gestionar, true);
     assert.deepEqual(proyecto.integrantes.map((i) => i.id_usuario), [supervisor.id_usuario]);
+    assert.equal(proyecto.integrantes[0].es_responsable, 1, "quien crea el proyecto queda como responsable");
+    assert.ok("nombres_responsables" in proyecto);
   });
 
   await paso("visibilidad: el admin ve todo, el colaborador solo donde es integrante", async () => {
@@ -146,7 +162,7 @@ const probarServicios = async () => {
     id_proyecto: proyecto.id_proyecto,
     titulo,
     descripcion: null,
-    id_usuario_responsable: colaborador.id_usuario,
+    ids_responsables: [colaborador.id_usuario],
     id_prioridad: PRIORIDADES.MEDIA,
     id_etarea: null,
     porcentaje_avance: null,
@@ -157,11 +173,13 @@ const probarServicios = async () => {
 
   await paso("alta de tareas: permisos, responsable integrante y notificación de asignación", async () => {
     await falla(403, tareasService.crear(colaborador, datosTarea("No debería crearse")));
-    await falla(400, tareasService.crear(supervisor, datosTarea("Responsable ajeno", { id_usuario_responsable: ajeno.id_usuario })));
+    await falla(400, tareasService.crear(supervisor, datosTarea("Responsable ajeno", { ids_responsables: [ajeno.id_usuario] })));
     tareaA = await tareasService.crear(supervisor, datosTarea("Tarea A"));
     tareaB = await tareasService.crear(supervisor, datosTarea("Tarea B", { fecha_vencimiento: hoyMas(-2), id_prioridad: PRIORIDADES.URGENTE }));
-    tareaC = await tareasService.crear(supervisor, datosTarea("Tarea C", { id_usuario_responsable: null, fecha_vencimiento: null }));
+    tareaC = await tareasService.crear(supervisor, datosTarea("Tarea C", { ids_responsables: [], fecha_vencimiento: null }));
     assert.equal(tareaA.id_etarea, ESTADOS_TAREA.PENDIENTE);
+    assert.deepEqual(tareaA.responsables.map((r) => r.id_usuario), [colaborador.id_usuario]);
+    assert.deepEqual(tareaC.responsables, []);
     assert.equal(tareaA.porcentaje_avance, 0);
     assert.equal(tareaA.fecha_vencimiento, hoyMas(1));
     assert.equal(tareaA.dias_para_vencer, 1);
@@ -267,25 +285,113 @@ const probarServicios = async () => {
   // ───────────── Edición, reasignación y comentarios ─────────────
   await paso("editar y reasignar: notifica al responsable nuevo y al anterior", async () => {
     await proyectosService.agregarIntegrante(admin, proyecto.id_proyecto, ajeno.id_usuario);
-    const editada = await tareasService.actualizar(supervisor, tareaA.id_tarea, datosTarea("Tarea A editada", { id_usuario_responsable: ajeno.id_usuario, fecha_vencimiento: hoyMas(10) }));
+    const editada = await tareasService.actualizar(supervisor, tareaA.id_tarea, datosTarea("Tarea A editada", { ids_responsables: [ajeno.id_usuario], fecha_vencimiento: hoyMas(10) }));
     assert.equal(editada.titulo, "Tarea A editada");
-    assert.equal(editada.id_usuario_responsable, ajeno.id_usuario);
+    assert.deepEqual(editada.responsables.map((r) => r.id_usuario), [ajeno.id_usuario]);
     assert.equal(editada.id_etarea, ESTADOS_TAREA.EN_PROGRESO, "editar no toca el estado");
     assert.equal((await notificacionesRepository.listar(ajeno.id_usuario))[0].id_tnotificacion, TIPOS_NOTIFICACION.TAREA_ASIGNADA);
     assert.equal((await notificacionesRepository.listar(colaborador.id_usuario))[0].id_tnotificacion, TIPOS_NOTIFICACION.TAREA_MODIFICADA);
     // Solo cambia la fecha: aviso de cambio de vencimiento.
-    await tareasService.actualizar(supervisor, tareaA.id_tarea, datosTarea("Tarea A editada", { id_usuario_responsable: ajeno.id_usuario, fecha_vencimiento: hoyMas(12) }));
+    await tareasService.actualizar(supervisor, tareaA.id_tarea, datosTarea("Tarea A editada", { ids_responsables: [ajeno.id_usuario], fecha_vencimiento: hoyMas(12) }));
     assert.equal((await notificacionesRepository.listar(ajeno.id_usuario))[0].id_tnotificacion, TIPOS_NOTIFICACION.CAMBIO_VENCIMIENTO);
   });
 
   await paso("comentarios: alta, notificación y borrado solo por el autor o un admin", async () => {
-    const comentarios = await tareasService.agregarComentario(colaborador, tareaA.id_tarea, "¿Sigo con esto o espero?");
+    const comentarios = await tareasService.agregarComentario(colaborador, tareaA.id_tarea, { comentario: "¿Sigo con esto o espero?", ids_mencionados: [] });
     assert.equal(comentarios.length, 1);
+    assert.deepEqual(comentarios[0].menciones, []);
     assert.equal((await notificacionesRepository.listar(ajeno.id_usuario))[0].id_tnotificacion, TIPOS_NOTIFICACION.COMENTARIO);
     const id = comentarios[0].id_tarea_comentario;
     await falla(403, tareasService.eliminarComentario(ajeno, tareaA.id_tarea, id));
     await falla(404, tareasService.eliminarComentario(colaborador, tareaB.id_tarea, id));
     assert.equal((await tareasService.eliminarComentario(colaborador, tareaA.id_tarea, id)).length, 0);
+  });
+
+  await paso("menciones: una mención que no figura en el texto se descarta; las guardadas vuelven con el comentario", async () => {
+    // Un usuario que todavía no es integrante del proyecto.
+    const externo = await crearUsuario(-5, ROLES.COLABORADOR);
+    const antes = (await notificacionesRepository.listar(externo.id_usuario)).length;
+    // Se manda su id pero su nombre no aparece en el texto: no es una mención.
+    const comentarios = await tareasService.agregarComentario(colaborador, tareaA.id_tarea, { comentario: "Sin etiquetar a nadie", ids_mencionados: [externo.id_usuario, 999999] });
+    const nuevo = comentarios.at(-1);
+    assert.deepEqual(nuevo.menciones, []);
+    assert.equal((await notificacionesRepository.listar(externo.id_usuario)).length, antes, "no se lo notifica");
+    assert.equal(await proyectosRepository.esIntegrante(proyecto.id_proyecto, externo.id_usuario), false, "no se lo suma al proyecto");
+    // Guardado y lectura de menciones (los usuarios de prueba no tienen nombre en Ciudad Digital,
+    // así que el camino completo con @Nombre se prueba a mano en el navegador).
+    await tareasRepository.insertarMenciones(nuevo.id_tarea_comentario, [externo.id_usuario, ajeno.id_usuario]);
+    const conMenciones = (await tareasService.listarComentarios(colaborador, tareaA.id_tarea)).at(-1);
+    assert.deepEqual(conMenciones.menciones.map((m) => m.id_usuario).sort(), [ajeno.id_usuario, externo.id_usuario].sort());
+    assert.equal((await usuariosService.listarEtiquetables()).length, 5);
+    assert.deepEqual(Object.keys((await usuariosService.listarEtiquetables())[0]).sort(), ["id_usuario", "nombre_usuario"], "sin CUIL ni email");
+  });
+
+  // ───────────── Varios responsables ─────────────
+  await paso("varios responsables: todos pueden actualizar, todos se enteran y el que se quita deja de poder", async () => {
+    const tareaD = await tareasService.crear(supervisor, datosTarea("Tarea D", { ids_responsables: [colaborador.id_usuario, ajeno.id_usuario], fecha_vencimiento: null }));
+    assert.deepEqual(tareaD.responsables.map((r) => r.id_usuario).sort(), [colaborador.id_usuario, ajeno.id_usuario].sort());
+    for (const responsable of [colaborador, ajeno]) {
+      assert.equal((await notificacionesRepository.listar(responsable.id_usuario))[0].id_tnotificacion, TIPOS_NOTIFICACION.TAREA_ASIGNADA);
+      assert.equal((await tareasService.obtener(responsable, tareaD.id_tarea)).puede_actualizar, true);
+      assert.ok((await tareasService.listar(responsable, { mias: 1 })).some((t) => t.id_tarea === tareaD.id_tarea));
+    }
+    await tareasService.registrarActualizacion(ajeno, tareaD.id_tarea, { id_tactualizacion: TIPOS_ACTUALIZACION.AVANCE, id_etarea: null, porcentaje_avance: 30, comentario: null });
+    await tareasService.mover(colaborador, tareaD.id_tarea, { id_etarea: ESTADOS_TAREA.EN_PROGRESO, ids_columna: null });
+    assert.equal((await notificacionesRepository.listar(ajeno.id_usuario))[0].id_tnotificacion, TIPOS_NOTIFICACION.AVANCE_REGISTRADO, "al otro responsable le llega el avance");
+    assert.equal((await tareasService.listar(admin, { id_usuario_responsable: ajeno.id_usuario })).filter((t) => t.id_tarea === tareaD.id_tarea).length, 1);
+
+    // Se quita a un responsable: se le avisa y deja de poder actualizar.
+    const editada = await tareasService.actualizar(supervisor, tareaD.id_tarea, datosTarea("Tarea D", { ids_responsables: [ajeno.id_usuario], fecha_vencimiento: null }));
+    assert.deepEqual(editada.responsables.map((r) => r.id_usuario), [ajeno.id_usuario]);
+    const aviso = (await notificacionesRepository.listar(colaborador.id_usuario))[0];
+    assert.equal(aviso.id_tnotificacion, TIPOS_NOTIFICACION.TAREA_MODIFICADA);
+    assert.match(aviso.texto, /Ya no sos responsable/);
+    await falla(403, tareasService.registrarActualizacion(colaborador, tareaD.id_tarea, { id_tactualizacion: TIPOS_ACTUALIZACION.AVANCE, id_etarea: null, porcentaje_avance: 50, comentario: null }));
+    // Volver a sumarlo reutiliza la misma fila (habilita = 1), no la duplica.
+    const otraVez = await tareasService.actualizar(supervisor, tareaD.id_tarea, datosTarea("Tarea D", { ids_responsables: [ajeno.id_usuario, colaborador.id_usuario], fecha_vencimiento: null }));
+    assert.equal(otraVez.responsables.length, 2);
+    // Sin responsables = sin asignar.
+    const sinNadie = await tareasService.actualizar(supervisor, tareaD.id_tarea, datosTarea("Tarea D", { ids_responsables: [], fecha_vencimiento: null }));
+    assert.deepEqual(sinNadie.responsables, []);
+    // Se archiva para que no cambie los totales de los pasos que siguen.
+    await tareasService.archivar(supervisor, tareaD.id_tarea, 1);
+  });
+
+  await paso("tablero e historial: las finalizadas viejas salen del tablero y se encuentran en el historial", async () => {
+    const tareaE = await tareasService.crear(supervisor, datosTarea("Tarea E", { fecha_vencimiento: null }));
+    await tareasService.mover(supervisor, tareaE.id_tarea, { id_etarea: ESTADOS_TAREA.FINALIZADA, ids_columna: null });
+    const enTablero = async () => (await tareasService.listar(admin, { tablero: 1 })).some((t) => t.id_tarea === tareaE.id_tarea);
+    assert.equal(await enTablero(), true, "recién finalizada: sigue en el tablero");
+
+    // Se simula que se finalizó hace 30 días.
+    await consultar("UPDATE tarea SET fecha_finalizacion = DATE_SUB(NOW(), INTERVAL 30 DAY) WHERE id_tarea = ?", [tareaE.id_tarea]);
+    assert.equal(await enTablero(), false, "finalizada hace 30 días: ya no está en el tablero");
+    assert.ok((await tareasService.listar(admin, {})).some((t) => t.id_tarea === tareaE.id_tarea), "la lista de tareas la sigue mostrando");
+    assert.equal((await tareasService.listar(admin, { tablero: 1 })).length, (await tareasService.listar(admin, {})).length - 1, "las no finalizadas no se ocultan");
+
+    const historial = await tareasService.listar(admin, { solo_finalizadas: 1, ordenar: "finalizacion" });
+    assert.deepEqual(historial.map((t) => t.titulo), ["Tarea E"], "el historial trae solo finalizadas");
+    const haceUnMes = hoyMas(-30);
+    assert.equal((await tareasService.listar(admin, { solo_finalizadas: 1, finalizada_desde: haceUnMes, finalizada_hasta: haceUnMes })).length, 1);
+    assert.equal((await tareasService.listar(admin, { solo_finalizadas: 1, finalizada_desde: hoyMas(-5) })).length, 0);
+    assert.equal((await tareasService.listar(admin, { solo_finalizadas: 1, finalizada_hasta: hoyMas(-40) })).length, 0);
+    // Reabrirla la devuelve al tablero.
+    await tareasService.mover(supervisor, tareaE.id_tarea, { id_etarea: ESTADOS_TAREA.EN_PROGRESO, ids_columna: null });
+    assert.equal(await enTablero(), true);
+    // Se archiva para que no cambie los totales de los pasos que siguen.
+    await tareasService.archivar(supervisor, tareaE.id_tarea, 1);
+  });
+
+  await paso("responsables de proyecto: se marcan varios, solo quien gestiona, y no cambia permisos", async () => {
+    const responsables = async () => (await proyectosService.listarIntegrantes(admin, proyecto.id_proyecto)).filter((i) => i.es_responsable === 1).map((i) => i.id_usuario);
+    assert.deepEqual(await responsables(), [supervisor.id_usuario]);
+    await falla(403, proyectosService.marcarResponsable(colaborador, proyecto.id_proyecto, colaborador.id_usuario, 1));
+    await falla(404, proyectosService.marcarResponsable(supervisor, proyecto.id_proyecto, 999999, 1));
+    await proyectosService.marcarResponsable(supervisor, proyecto.id_proyecto, colaborador.id_usuario, 1);
+    assert.deepEqual((await responsables()).sort(), [supervisor.id_usuario, colaborador.id_usuario].sort());
+    assert.equal((await proyectosService.obtener(colaborador, proyecto.id_proyecto)).puede_gestionar, false, "ser responsable es informativo");
+    await proyectosService.marcarResponsable(supervisor, proyecto.id_proyecto, colaborador.id_usuario, 0);
+    assert.deepEqual(await responsables(), [supervisor.id_usuario]);
   });
 
   // ───────────── Notificaciones ─────────────
@@ -303,13 +409,15 @@ const probarServicios = async () => {
 
   await paso("aviso automático de vencimiento: avisa una vez y no repite", async () => {
     // B (vencida) y A no entran: A vence en 12 días. Se asigna C con vencimiento mañana.
-    await tareasService.actualizar(supervisor, tareaC.id_tarea, datosTarea("Tarea C", { id_usuario_responsable: colaborador.id_usuario, fecha_vencimiento: hoyMas(1) }));
+    await tareasService.actualizar(supervisor, tareaC.id_tarea, datosTarea("Tarea C", { ids_responsables: [colaborador.id_usuario, ajeno.id_usuario], fecha_vencimiento: hoyMas(1) }));
     const creadas = await notificacionesService.generarAvisosDeVencimiento();
-    assert.equal(creadas, 2, "una por B (vencida) y una por C (vence mañana)");
+    assert.equal(creadas, 3, "una por B (vencida) y una por cada uno de los dos responsables de C (vence mañana)");
     assert.equal(await notificacionesService.generarAvisosDeVencimiento(), 0, "no repite el aviso");
     const avisos = (await notificacionesRepository.listar(colaborador.id_usuario)).filter((n) => n.id_tnotificacion === TIPOS_NOTIFICACION.PROXIMA_A_VENCER);
     assert.equal(avisos.length, 2);
     assert.ok(avisos.some((n) => n.texto.startsWith("Venció")) && avisos.some((n) => n.texto.startsWith("Está por vencer")));
+    const delOtro = (await notificacionesRepository.listar(ajeno.id_usuario)).filter((n) => n.id_tnotificacion === TIPOS_NOTIFICACION.PROXIMA_A_VENCER);
+    assert.equal(delOtro.length, 1, "al segundo responsable de C también le llega");
   });
 
   // ───────────── Panel y actividad ─────────────
@@ -343,8 +451,8 @@ const probarServicios = async () => {
     await falla(403, tareasService.archivar(colaborador, tareaC.id_tarea, 1));
     await tareasService.archivar(supervisor, tareaC.id_tarea, 1);
     assert.equal((await tareasService.listar(admin, {})).length, 2);
-    assert.equal((await tareasService.listar(admin, { archivada: 1 })).length, 1);
-    await falla(409, tareasService.agregarComentario(colaborador, tareaC.id_tarea, "No debería entrar"));
+    assert.equal((await tareasService.listar(admin, { archivada: 1 })).length, 3, "C y las tareas D y E archivadas antes");
+    await falla(409, tareasService.agregarComentario(colaborador, tareaC.id_tarea, { comentario: "No debería entrar", ids_mencionados: [] }));
     await tareasService.archivar(supervisor, tareaC.id_tarea, 0);
 
     await proyectosService.archivar(supervisor, proyecto.id_proyecto, 1);
@@ -383,7 +491,8 @@ const probarApi = async ({ admin, colaborador, ajeno, proyecto, tareaA }) => {
       assert.equal(catalogos.estado, 200);
       assert.equal(catalogos.datos.estadosTarea.length, 5);
       assert.equal(catalogos.datos.prioridades.length, 4);
-      for (const ruta of ["/dashboard", "/proyectos", "/tareas?mias=1&ordenar=vencimiento", "/actividad?cantidad=5", "/notificaciones", "/notificaciones/resumen", "/usuarios", `/proyectos/${proyecto.id_proyecto}`, `/proyectos/${proyecto.id_proyecto}/integrantes`, `/tareas/${tareaA.id_tarea}`, `/tareas/${tareaA.id_tarea}/actualizaciones`, `/tareas/${tareaA.id_tarea}/comentarios`]) {
+      assert.equal(catalogos.datos.configuracion.dias_finalizadas_en_tablero, env.diasFinalizadasEnTablero);
+      for (const ruta of ["/dashboard", "/proyectos", "/usuarios/etiquetables", "/tareas?tablero=1", "/tareas?solo_finalizadas=1&ordenar=finalizacion&finalizada_desde=2026-01-01", "/tareas?mias=1&ordenar=vencimiento", "/actividad?cantidad=5", "/notificaciones", "/notificaciones/resumen", "/usuarios", `/proyectos/${proyecto.id_proyecto}`, `/proyectos/${proyecto.id_proyecto}/integrantes`, `/tareas/${tareaA.id_tarea}`, `/tareas/${tareaA.id_tarea}/actualizaciones`, `/tareas/${tareaA.id_tarea}/comentarios`]) {
         const respuesta = await pedir(admin, "GET", ruta);
         assert.equal(respuesta.estado, 200, `${ruta} -> ${respuesta.estado} ${JSON.stringify(respuesta.datos)}`);
       }
@@ -394,6 +503,8 @@ const probarApi = async ({ admin, colaborador, ajeno, proyecto, tareaA }) => {
       assert.equal((await pedir(colaborador, "POST", "/usuarios", { id_persona: -50, id_tusuario: 1 })).estado, 403);
       assert.equal((await pedir(colaborador, "POST", "/proyectos", { nombre_proyecto: "No", id_eproyecto: 1 })).estado, 403);
       assert.equal((await pedir(colaborador, "POST", "/tareas", { id_proyecto: proyecto.id_proyecto, titulo: "No va", id_prioridad: 2 })).estado, 403);
+      assert.equal((await pedir(colaborador, "PATCH", `/proyectos/${proyecto.id_proyecto}/integrantes/${colaborador.id_usuario}`, { es_responsable: 1 })).estado, 403);
+      assert.equal((await pedir(colaborador, "GET", "/usuarios/etiquetables")).estado, 200, "cualquier usuario puede pedir a quién etiquetar");
       assert.equal((await pedir(colaborador, "PUT", `/tareas/${tareaA.id_tarea}`, { titulo: "No va", id_prioridad: 2 })).estado, 403);
       assert.equal((await pedir({ id_persona: -777 }, "GET", "/proyectos")).estado, 403, "persona sin usuario en el Organizador");
       assert.equal((await pedir({ id_persona: -777 }, "GET", "/usuarios/authStatus")).estado, 401, "persona que no existe en Ciudad Digital");
@@ -415,8 +526,15 @@ const probarApi = async ({ admin, colaborador, ajeno, proyecto, tareaA }) => {
     });
 
     await paso("HTTP: flujo completo de una tarea (crear, mover, actualizar, comentar)", async () => {
-      const creada = await pedir(admin, "POST", "/tareas", { id_proyecto: proyecto.id_proyecto, titulo: "Tarea por HTTP", id_prioridad: 3, id_usuario_responsable: colaborador.id_usuario, fecha_vencimiento: hoyMas(4) });
+      const creada = await pedir(admin, "POST", "/tareas", { id_proyecto: proyecto.id_proyecto, titulo: "Tarea por HTTP", id_prioridad: 3, ids_responsables: [colaborador.id_usuario, ajeno.id_usuario], fecha_vencimiento: hoyMas(4) });
       assert.equal(creada.estado, 201);
+      assert.equal(creada.datos.responsables.length, 2);
+      const invalida = await pedir(admin, "POST", "/tareas", { id_proyecto: proyecto.id_proyecto, titulo: "Lista inválida", id_prioridad: 3, ids_responsables: "todos" });
+      assert.equal(invalida.estado, 400);
+      assert.ok(invalida.datos.errores.ids_responsables);
+      const marcado = await pedir(admin, "PATCH", `/proyectos/${proyecto.id_proyecto}/integrantes/${colaborador.id_usuario}`, { es_responsable: 1 });
+      assert.equal(marcado.estado, 200);
+      assert.equal(marcado.datos.find((i) => i.id_usuario === colaborador.id_usuario).es_responsable, 1);
       const id = creada.datos.id_tarea;
       const movida = await pedir(colaborador, "PATCH", `/tareas/${id}/mover`, { id_etarea: 2, ids_columna: [id] });
       assert.equal(movida.estado, 200, JSON.stringify(movida.datos));
@@ -424,8 +542,9 @@ const probarApi = async ({ admin, colaborador, ajeno, proyecto, tareaA }) => {
       const actualizada = await pedir(colaborador, "POST", `/tareas/${id}/actualizaciones`, { id_tactualizacion: 1, porcentaje_avance: 55, comentario: "Vamos por la mitad" });
       assert.equal(actualizada.estado, 201);
       assert.equal(actualizada.datos.porcentaje_avance, 55);
-      const comentada = await pedir(colaborador, "POST", `/tareas/${id}/comentarios`, { comentario: "Listo para revisar" });
+      const comentada = await pedir(colaborador, "POST", `/tareas/${id}/comentarios`, { comentario: "Listo para revisar", ids_mencionados: [ajeno.id_usuario] });
       assert.equal(comentada.estado, 201);
+      assert.deepEqual(comentada.datos.at(-1).menciones, [], "sin @Nombre en el texto no hay mención");
       const historial = await pedir(admin, "GET", `/tareas/${id}/actualizaciones`);
       assert.equal(historial.datos.length, 2);
       const archivada = await pedir(admin, "PATCH", `/tareas/${id}/archivar`, { archivada: 1 });

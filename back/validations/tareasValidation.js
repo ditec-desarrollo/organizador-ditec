@@ -18,6 +18,12 @@ export const filtrosTarea = (query) => {
     vence_desde: v.fecha("vence_desde"),
     vence_hasta: v.fecha("vence_hasta"),
     vencimiento: v.texto("vencimiento", { max: 20 }),
+    // tablero=1: oculta las finalizadas hace más de DIAS_FINALIZADAS_EN_TABLERO días.
+    tablero: v.booleano("tablero"),
+    // Historial: solo finalizadas y, si se quiere, entre dos fechas de finalización.
+    solo_finalizadas: v.booleano("solo_finalizadas"),
+    finalizada_desde: v.fecha("finalizada_desde"),
+    finalizada_hasta: v.fecha("finalizada_hasta"),
     ordenar: v.texto("ordenar", { max: 20 }),
     buscar: v.texto("buscar", { max: 100 }),
     archivada: v.booleano("archivada"),
@@ -26,8 +32,8 @@ export const filtrosTarea = (query) => {
   if (filtros.vencimiento && !["vencidas", "proximas"].includes(filtros.vencimiento)) {
     v.error("vencimiento", "Tiene que ser 'vencidas' o 'proximas'");
   }
-  if (filtros.ordenar && !["tablero", "vencimiento"].includes(filtros.ordenar)) {
-    v.error("ordenar", "Tiene que ser 'tablero' o 'vencimiento'");
+  if (filtros.ordenar && !["tablero", "vencimiento", "finalizacion"].includes(filtros.ordenar)) {
+    v.error("ordenar", "Tiene que ser 'tablero', 'vencimiento' o 'finalizacion'");
   }
   v.verificar();
   return filtros;
@@ -38,7 +44,8 @@ const datosGenerales = (v) => {
   const datos = {
     titulo: v.texto("titulo", { requerido: true, min: 3, max: 200 }),
     descripcion: v.texto("descripcion", { max: 5000 }),
-    id_usuario_responsable: v.entero("id_usuario_responsable"),
+    // Puede no tener ninguno ("sin asignar") o varios.
+    ids_responsables: v.listaDeEnteros("ids_responsables", { max: 30 }) ?? [],
     id_prioridad: v.opcion("id_prioridad", IDS_PRIORIDAD, { requerido: true }),
     fecha_inicio: v.fecha("fecha_inicio"),
     fecha_vencimiento: v.fecha("fecha_vencimiento"),
@@ -94,11 +101,15 @@ export const datosMover = (body) => {
   return datos;
 };
 
+// ids_mencionados: usuarios etiquetados con @ en el texto (opcional).
 export const datosComentario = (body) => {
   const v = new Validador(body);
-  const comentario = v.texto("comentario", { requerido: true, max: 5000 });
+  const datos = {
+    comentario: v.texto("comentario", { requerido: true, max: 5000 }),
+    ids_mencionados: v.listaDeEnteros("ids_mencionados", { max: 30 }) ?? [],
+  };
   v.verificar();
-  return comentario;
+  return datos;
 };
 
 export const filtrosActividad = (query) => {

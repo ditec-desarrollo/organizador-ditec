@@ -1,5 +1,5 @@
 import * as usuariosService from "../services/usuariosService.js";
-import { datosUsuario, datosUsuarioNuevo, documentoDePersona, filtrosUsuario } from "../validations/usuariosValidation.js";
+import { datosUsuario, datosUsuarioNuevo, documentoDePersona, filtrosUsuario, palabrasDeBusqueda } from "../validations/usuariosValidation.js";
 import { idDeRuta } from "../utils/validador.js";
 import CustomError from "../utils/customError.js";
 
@@ -14,11 +14,19 @@ export const listarUsuarios = async (req, res) => {
   res.json(await usuariosService.listar(filtrosUsuario(req.query)));
 };
 
+export const listarEtiquetables = async (req, res) => {
+  res.json(await usuariosService.listarEtiquetables());
+};
+
 export const buscarPersona = async (req, res) => {
   res.json(await usuariosService.buscarPersona(documentoDePersona(req.params)));
 };
 
-export const crearUsuario = async (req, res) => {
+export const buscarPersonas = async (req, res) => {
+  res.json(await usuariosService.buscarPersonas(palabrasDeBusqueda(req.query)));
+};
+
+export const crearUsuario =async (req, res) => {
   const usuario = await usuariosService.crear(req.usuario, datosUsuarioNuevo(req.body));
   res.status(201).json(usuario);
 };

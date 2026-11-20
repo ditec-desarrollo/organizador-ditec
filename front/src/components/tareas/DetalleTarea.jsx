@@ -9,6 +9,7 @@ import { useConsulta } from "../../hooks/useConsulta";
 import { tareasApi } from "../../services/api";
 import { avisarError, avisarExito, confirmar } from "../../utils/avisos";
 import { alertaVencimiento, mostrarFecha, mostrarFechaHora, textoVencimiento } from "../../utils/fechas";
+import { nombresDeResponsables } from "../../utils/opciones";
 import BarraAvance from "../ui/BarraAvance";
 import { ChipEstadoTarea, ChipNeutro, ChipPrioridad } from "../ui/Chips";
 import { Consulta } from "../ui/Estados";
@@ -26,8 +27,8 @@ const FichaTarea = ({ tarea }) => (
       <dd>{tarea.nombre_proyecto}</dd>
     </div>
     <div>
-      <dt>Responsable</dt>
-      <dd>{tarea.nombre_responsable || "Sin asignar"}</dd>
+      <dt>Responsables</dt>
+      <dd>{nombresDeResponsables(tarea.responsables)}</dd>
     </div>
     <div>
       <dt>Vencimiento</dt>
@@ -124,11 +125,11 @@ const DetalleTarea = ({ idTarea, onCerrar }) => {
                     <p className="org-lista__meta">
                       {soloLectura
                         ? "La tarea está archivada: no admite actualizaciones."
-                        : "Solo el responsable de la tarea o quien gestiona el proyecto puede registrar avances."}
+                        : "Solo los responsables de la tarea o quien gestiona el proyecto pueden registrar avances."}
                     </p>
                   ))}
                 {pestana === "historial" && <HistorialTarea idTarea={idTarea} />}
-                {pestana === "comentarios" && <ComentariosTarea idTarea={idTarea} puedeComentar={!soloLectura} />}
+                {pestana === "comentarios" && <ComentariosTarea idTarea={idTarea} idProyecto={t.id_proyecto} puedeComentar={!soloLectura} />}
               </div>
             </div>
           )}

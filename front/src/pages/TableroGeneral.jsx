@@ -7,9 +7,12 @@ import { Consulta } from "../components/ui/Estados";
 import { useFiltrosTareas } from "../hooks/useFiltrosTareas";
 import { useTareas } from "../hooks/useTareas";
 
+// tablero: 1 -> el back no trae las finalizadas hace más de unos días (quedan en el Historial).
+const FIJOS = { tablero: 1 };
+
 // Tablero Kanban con las tareas de todos los proyectos que el usuario puede ver.
 const TableroGeneral = () => {
-  const { filtros, setFiltros, paraApi } = useFiltrosTareas();
+  const { filtros, setFiltros, paraApi } = useFiltrosTareas(FIJOS);
   const consulta = useTareas(paraApi);
 
   return (

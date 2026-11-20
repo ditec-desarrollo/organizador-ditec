@@ -22,7 +22,12 @@ const SELECT_PROYECTO = `
     COALESCE(r.tareas_finalizadas, 0) AS tareas_finalizadas,
     COALESCE(r.tareas_vencidas, 0) AS tareas_vencidas,
     COALESCE(r.avance, 0) AS avance,
-    (SELECT COUNT(*) FROM proyecto_integrante pi WHERE pi.id_proyecto = p.id_proyecto AND pi.habilita = 1) AS total_integrantes
+    (SELECT COUNT(*) FROM proyecto_integrante pi WHERE pi.id_proyecto = p.id_proyecto AND pi.habilita = 1) AS total_integrantes,
+    (SELECT GROUP_CONCAT(${nombreCompleto("pper")} ORDER BY pper.apellido_persona, pper.nombre_persona SEPARATOR ', ')
+     FROM proyecto_integrante pir
+     INNER JOIN usuario ur ON ur.id_usuario = pir.id_usuario
+     LEFT JOIN ${TABLA_PERSONA} pper ON pper.id_persona = ur.id_persona
+     WHERE pir.id_proyecto = p.id_proyecto AND pir.habilita = 1 AND pir.es_responsable = 1) AS nombres_responsables
   FROM proyecto p
   INNER JOIN estado_proyecto ep ON ep.id_eproyecto = p.id_eproyecto
   LEFT JOIN usuario uc ON uc.id_usuario = p.id_usuario_alta
@@ -132,17 +137,19 @@ export const listarIntegrantes = (id_proyecto) =>
        tu.nombre_tusuario,
        ${nombreCompleto("p")} AS nombre_usuario,
        p.email_persona,
+       pi.es_responsable,
        pi.fecha_alta,
        (SELECT COUNT(*) FROM tarea t
         INNER JOIN estado_tarea et ON et.id_etarea = t.id_etarea
-        WHERE t.id_proyecto = pi.id_proyecto AND t.id_usuario_responsable = u.id_usuario
+        INNER JOIN tarea_responsable tr ON tr.id_tarea = t.id_tarea AND tr.id_usuario = u.id_usuario AND tr.habilita = 1
+        WHERE t.id_proyecto = pi.id_proyecto
           AND t.habilita = 1 AND t.archivada = 0 AND et.es_final = 0) AS tareas_abiertas
      FROM proyecto_integrante pi
      INNER JOIN usuario u ON u.id_usuario = pi.id_usuario
      INNER JOIN tipo_usuario tu ON tu.id_tusuario = u.id_tusuario
      LEFT JOIN ${TABLA_PERSONA} p ON p.id_persona = u.id_persona
      WHERE pi.id_proyecto = ? AND pi.habilita = 1
-     ORDER BY tu.id_tusuario, p.apellido_persona, p.nombre_persona`,
+     ORDER BY pi.es_responsable DESC, tu.id_tusuario, p.apellido_persona, p.nombre_persona`,
     [id_proyecto],
   );
 
@@ -156,17 +163,31 @@ export const agregarIntegrante = (id_proyecto, id_usuario, id_usuario_alta, conn
     connection,
   );
 
+// Al quitarlo deja también de ser responsable: si vuelve al proyecto, vuelve como integrante común.
 export const quitarIntegrante = (id_proyecto, id_usuario, connection) =>
-  consultar("UPDATE proyecto_integrante SET habilita = 0 WHERE id_proyecto = ? AND id_usuario = ?", [id_proyecto, id_usuario], connection);
+  consultar(
+    "UPDATE proyecto_integrante SET habilita = 0, es_responsable = 0 WHERE id_proyecto = ? AND id_usuario = ?",
+    [id_proyecto, id_usuario],
+    connection,
+  );
+
+// Marca o desmarca a un integrante como responsable del proyecto (dato informativo).
+export const marcarResponsable = (id_proyecto, id_usuario, es_responsable, connection) =>
+  consultar(
+    "UPDATE proyecto_integrante SET es_responsable = ? WHERE id_proyecto = ? AND id_usuario = ? AND habilita = 1",
+    [es_responsable, id_proyecto, id_usuario],
+    connection,
+  );
 
 export const contarTareasAbiertasDe = async (id_proyecto, id_usuario, connection) => {
   const filas = await consultar(
     `SELECT COUNT(*) AS total
      FROM tarea t
      INNER JOIN estado_tarea et ON et.id_etarea = t.id_etarea
-     WHERE t.id_proyecto = ? AND t.id_usuario_responsable = ?
+     INNER JOIN tarea_responsable tr ON tr.id_tarea = t.id_tarea AND tr.id_usuario = ? AND tr.habilita = 1
+     WHERE t.id_proyecto = ?
        AND t.habilita = 1 AND t.archivada = 0 AND et.es_final = 0`,
-    [id_proyecto, id_usuario],
+    [id_usuario, id_proyecto],
     connection,
   );
   return filas[0].total;

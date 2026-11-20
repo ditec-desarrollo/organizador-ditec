@@ -2,6 +2,7 @@ import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
 import TaskAltRoundedIcon from "@mui/icons-material/TaskAltRounded";
 import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import { mostrarFecha } from "../../utils/fechas";
 import BarraAvance from "../ui/BarraAvance";
 import { ChipEstadoProyecto, ChipNeutro } from "../ui/Chips";
@@ -15,6 +16,12 @@ const TarjetaProyecto = ({ proyecto, onAbrir }) => (
     </span>
     <span className="org-proyecto__nombre">{proyecto.nombre_proyecto}</span>
     {proyecto.descripcion && <span className="org-proyecto__descripcion">{proyecto.descripcion}</span>}
+    {proyecto.nombres_responsables && (
+      <span className="org-dato org-proyecto__responsables" title={`Responsables: ${proyecto.nombres_responsables}`}>
+        <PersonOutlineRoundedIcon />
+        <span>{proyecto.nombres_responsables}</span>
+      </span>
+    )}
     <BarraAvance valor={proyecto.avance} />
     <span className="org-proyecto__pie">
       <span className="org-dato">

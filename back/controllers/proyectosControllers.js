@@ -34,6 +34,12 @@ export const agregarIntegrante = async (req, res) => {
   res.status(201).json(integrantes);
 };
 
+export const marcarResponsable = async (req, res) => {
+  const id_usuario = idDeRuta(req.params.id_usuario, "id_usuario");
+  const es_responsable = datosArchivar(req.body, "es_responsable");
+  res.json(await proyectosService.marcarResponsable(req.usuario, idProyecto(req), id_usuario, es_responsable));
+};
+
 export const quitarIntegrante = async (req, res) => {
   const id_usuario = idDeRuta(req.params.id_usuario, "id_usuario");
   res.json(await proyectosService.quitarIntegrante(req.usuario, idProyecto(req), id_usuario));

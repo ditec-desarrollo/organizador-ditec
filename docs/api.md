@@ -33,9 +33,11 @@ API REST sobre HTTP y JSON. En desarrollo corre en `http://localhost:4010`.
 |---|---|---|
 | Administrador | Todo. | Todo, incluida la gestión de usuarios. |
 | Supervisor | Los proyectos en los que es integrante. | Crear proyectos y gestionar (editar, archivar, integrantes, tareas) los proyectos en los que es integrante. |
-| Colaborador | Los proyectos en los que es integrante. | Actualizar estado y avance de las tareas que tiene asignadas, y comentar en las tareas de sus proyectos. |
+| Colaborador | Los proyectos en los que es integrante. | Actualizar estado y avance de las tareas de las que es responsable, y comentar en las tareas de sus proyectos. |
 
 "Gestor" en las tablas de abajo = administrador o supervisor integrante del proyecto.
+
+Una tarea puede tener varios responsables y todos pueden actualizarla. Ser responsable de un proyecto es informativo: no da permisos.
 
 ## Sesión y datos generales
 
@@ -43,7 +45,7 @@ API REST sobre HTTP y JSON. En desarrollo corre en `http://localhost:4010`.
 |---|---|---|
 | `GET /salud` | público | `{ "ok": true }`. Para monitoreo. |
 | `GET /usuarios/authStatus` | token válido | `{ usuario }`: datos de la persona + `id_usuario`, `id_tusuario`, `nombre_tusuario`. Estos tres vienen en `null` si la persona no es usuaria habilitada del Organizador. |
-| `GET /catalogos` | usuario | `{ tiposUsuario, estadosProyecto, estadosTarea, prioridades, tiposActualizacion }`. |
+| `GET /catalogos` | usuario | `{ tiposUsuario, estadosProyecto, estadosTarea, prioridades, tiposActualizacion, configuracion }`. `configuracion` trae `dias_aviso_vencimiento` y `dias_finalizadas_en_tablero`. |
 | `GET /dashboard` | usuario | Panel según el rol (ver abajo). |
 | `GET /actividad` | usuario | Actividad reciente de los proyectos visibles. Filtros: `id_proyecto`, `id_tarea`, `id_usuario`, `cantidad` (máx. 200, por defecto 30). |
 
@@ -71,6 +73,7 @@ API REST sobre HTTP y JSON. En desarrollo corre en `http://localhost:4010`.
 | Método y ruta | Quién | Descripción |
 |---|---|---|
 | `GET /usuarios` | admin, supervisor | Lista de usuarios. Filtro: `solo_habilitados=1`. |
+| `GET /usuarios/etiquetables` | usuario | Lista mínima (`id_usuario`, `nombre_usuario`) de los usuarios habilitados, para etiquetar con `@` en los comentarios. |
 | `GET /usuarios/persona/:documento` | admin | Busca una persona de Ciudad Digital por CUIL (11 números). Devuelve la persona + `ya_registrado`. |
 | `POST /usuarios` | admin | Alta. Body: `{ id_persona, id_tusuario }`. |
 | `PUT /usuarios/:id_usuario` | admin | Body: `{ id_tusuario, habilita }`. No permite dejar el sistema sin administradores habilitados (`409`). |
@@ -79,13 +82,14 @@ API REST sobre HTTP y JSON. En desarrollo corre en `http://localhost:4010`.
 
 | Método y ruta | Quién | Descripción |
 |---|---|---|
-| `GET /proyectos` | usuario | Proyectos visibles, con resumen (`total_tareas`, `tareas_finalizadas`, `tareas_vencidas`, `avance`, `total_integrantes`). Filtros: `buscar`, `id_eproyecto`, `archivado` (por defecto `0`). |
-| `POST /proyectos` | admin, supervisor | Crea el proyecto y suma a quien lo crea como integrante. |
+| `GET /proyectos` | usuario | Proyectos visibles, con resumen (`total_tareas`, `tareas_finalizadas`, `tareas_vencidas`, `avance`, `total_integrantes`, `nombres_responsables`). Filtros: `buscar`, `id_eproyecto`, `archivado` (por defecto `0`). |
+| `POST /proyectos` | admin, supervisor | Crea el proyecto y suma a quien lo crea como integrante y responsable. |
 | `GET /proyectos/:id_proyecto` | integrante | Detalle + `integrantes` + `puede_gestionar`. |
 | `PUT /proyectos/:id_proyecto` | gestor | Edita los datos. |
 | `PATCH /proyectos/:id_proyecto/archivar` | gestor | Body: `{ archivado: 1 \| 0 }`. |
-| `GET /proyectos/:id_proyecto/integrantes` | integrante | Integrantes con sus tareas abiertas. |
+| `GET /proyectos/:id_proyecto/integrantes` | integrante | Integrantes con sus tareas abiertas y `es_responsable`. |
 | `POST /proyectos/:id_proyecto/integrantes` | gestor | Body: `{ id_usuario }`. |
+| `PATCH /proyectos/:id_proyecto/integrantes/:id_usuario` | gestor | Body: `{ es_responsable: 1 \| 0 }`. Marca o desmarca al integrante como responsable del proyecto. Puede haber varios. |
 | `DELETE /proyectos/:id_proyecto/integrantes/:id_usuario` | gestor | Quita al integrante. `409` si tiene tareas sin finalizar en el proyecto. |
 
 Body de `POST` y `PUT`:
@@ -107,15 +111,15 @@ Obligatorios: `nombre_proyecto` (3 a 150 caracteres) e `id_eproyecto`. La fecha 
 | Método y ruta | Quién | Descripción |
 |---|---|---|
 | `GET /tareas` | usuario | Tareas de los proyectos visibles. Filtros abajo. |
-| `POST /tareas` | gestor | Crea la tarea. Notifica al responsable. |
+| `POST /tareas` | gestor | Crea la tarea. Notifica a los responsables. |
 | `GET /tareas/:id_tarea` | integrante | Detalle + `puede_gestionar` + `puede_actualizar`. |
-| `PUT /tareas/:id_tarea` | gestor | Edita los datos generales y reasigna. |
+| `PUT /tareas/:id_tarea` | gestor | Edita los datos generales y los responsables. |
 | `PATCH /tareas/:id_tarea/archivar` | gestor | Body: `{ archivada: 1 \| 0 }`. |
-| `PATCH /tareas/:id_tarea/mover` | gestor o responsable | Drag and drop del tablero (ver abajo). |
+| `PATCH /tareas/:id_tarea/mover` | gestor o un responsable | Drag and drop del tablero (ver abajo). |
 | `GET /tareas/:id_tarea/actualizaciones` | integrante | Historial de seguimiento, de la más nueva a la más vieja. |
-| `POST /tareas/:id_tarea/actualizaciones` | gestor o responsable | Registra avance, estado, novedad o dificultad. |
-| `GET /tareas/:id_tarea/comentarios` | integrante | Comentarios, del más viejo al más nuevo. |
-| `POST /tareas/:id_tarea/comentarios` | integrante | Body: `{ comentario }`. Devuelve la lista actualizada. |
+| `POST /tareas/:id_tarea/actualizaciones` | gestor o un responsable | Registra avance, estado, novedad o dificultad. |
+| `GET /tareas/:id_tarea/comentarios` | integrante | Comentarios, del más viejo al más nuevo. Cada uno trae `menciones: [{ id_usuario, nombre_usuario }]`. |
+| `POST /tareas/:id_tarea/comentarios` | integrante | Body: `{ comentario, ids_mencionados }`. Devuelve la lista actualizada. Ver "Menciones". |
 | `DELETE /tareas/:id_tarea/comentarios/:id_tarea_comentario` | autor o admin | Borrado lógico. |
 
 Filtros de `GET /tareas`:
@@ -125,14 +129,17 @@ Filtros de `GET /tareas`:
 | `buscar` | Texto en el título de la tarea o el nombre del proyecto. |
 | `id_proyecto`, `id_usuario_responsable`, `id_etarea`, `id_prioridad` | Por id. |
 | `mias=1` | Solo las tareas asignadas al usuario de la sesión. |
-| `sin_responsable=1` | Solo las que no tienen responsable. |
+| `sin_responsable=1` | Solo las que no tienen ningún responsable. |
 | `vence_desde`, `vence_hasta` | Rango de fecha de vencimiento. |
 | `vencimiento` | `vencidas` o `proximas` (vencen dentro de `DIAS_AVISO_VENCIMIENTO` días). |
 | `archivada` | `1` para ver las archivadas (por defecto `0`). |
-| `ordenar` | `tablero` (por defecto: estado y posición) o `vencimiento`. |
+| `tablero=1` | Oculta las finalizadas hace más de `DIAS_FINALIZADAS_EN_TABLERO` días (lo usa el tablero). No modifica las tareas: siguen saliendo sin este parámetro. |
+| `solo_finalizadas=1` | Solo las tareas en un estado final (lo usa el Historial). |
+| `finalizada_desde`, `finalizada_hasta` | Rango de fecha de finalización. |
+| `ordenar` | `tablero` (por defecto: estado y posición), `vencimiento` o `finalizacion` (de la más reciente a la más vieja). |
 | `limite` | Máximo de filas (por defecto 1000, máx. 2000). |
 
-Cada tarea trae, además de sus columnas: `nombre_proyecto`, `nombre_responsable`, `nombre_prioridad`, `nombre_etarea`, `es_final`, `nombre_creador`, `vencida` (1/0) y `dias_para_vencer`.
+Cada tarea trae, además de sus columnas: `nombre_proyecto`, `responsables` (lista de `{ id_usuario, nombre_usuario }`, vacía si está sin asignar), `nombre_prioridad`, `nombre_etarea`, `es_final`, `nombre_creador`, `vencida` (1/0) y `dias_para_vencer`.
 
 Body de `POST /tareas`:
 
@@ -141,7 +148,7 @@ Body de `POST /tareas`:
   "id_proyecto": 1,
   "titulo": "Relevar los trámites más usados",
   "descripcion": "Texto opcional",
-  "id_usuario_responsable": 4,
+  "ids_responsables": [4, 9],
   "id_prioridad": 2,
   "id_etarea": 1,
   "fecha_inicio": "2026-11-18",
@@ -149,7 +156,7 @@ Body de `POST /tareas`:
 }
 ```
 
-Obligatorios: `id_proyecto`, `titulo` (3 a 200 caracteres) e `id_prioridad`. El responsable tiene que ser integrante del proyecto. `PUT /tareas/:id_tarea` recibe lo mismo sin `id_proyecto` ni `id_etarea`: el estado y el avance solo cambian por `mover` o por una actualización, para que siempre queden en el historial.
+Obligatorios: `id_proyecto`, `titulo` (3 a 200 caracteres) e `id_prioridad`. `ids_responsables` es opcional (sin responsables = sin asignar) y todos tienen que ser integrantes del proyecto. `PUT /tareas/:id_tarea` recibe lo mismo sin `id_proyecto` ni `id_etarea`: el estado y el avance solo cambian por `mover` o por una actualización, para que siempre queden en el historial.
 
 Body de `POST /tareas/:id_tarea/actualizaciones`:
 
@@ -167,6 +174,18 @@ Body de `PATCH /tareas/:id_tarea/mover`:
 
 `id_etarea` es la columna de destino e `ids_columna` (opcional) la lista de tareas de esa columna tal como quedó en pantalla, de arriba hacia abajo, incluida la que se movió. Si el estado cambia, se registra en el historial como "Cambio de estado".
 
+### Menciones
+
+En el texto de un comentario se etiqueta con `@Nombre Apellido` y se mandan en `ids_mencionados` los `id_usuario` etiquetados:
+
+```json
+{ "comentario": "@Ana Prueba, ¿lo podés revisar?", "ids_mencionados": [4] }
+```
+
+- Solo cuenta un id si el nombre de ese usuario figura en el texto precedido por `@`. Los demás se ignoran.
+- Se puede etiquetar a cualquier usuario habilitado. Si no es integrante del proyecto, se lo suma como integrante (queda registrado en la actividad quién lo sumó).
+- El etiquetado recibe la notificación "Mención en un comentario" en lugar de la de "Nuevo comentario".
+
 ## Notificaciones
 
 Siempre son las del usuario de la sesión.
@@ -182,11 +201,12 @@ Cuándo se generan:
 
 | Tipo | Cuándo | A quién |
 |---|---|---|
-| Tarea asignada | Al crear una tarea con responsable o al reasignarla. | Al responsable nuevo. |
-| Tarea modificada | Alguien editó la tarea o cambió su estado o avance; o la tarea se reasignó a otra persona. | Al responsable (o al anterior, si se reasignó). |
-| Cambio de fecha de entrega | Cambió la fecha de vencimiento. | Al responsable. |
-| Avance registrado | El responsable cambió el estado o el avance, o informó una novedad. | A quien creó la tarea. |
-| Nuevo comentario | Alguien comentó. | Al responsable y a quien creó la tarea. |
-| Próxima a vencer | Una tarea abierta vence dentro de `DIAS_AVISO_VENCIMIENTO` días o ya venció. Se revisa al arrancar el back y una vez por hora. | Al responsable. |
+| Tarea asignada | Al crear una tarea con responsables o al sumar uno. | A cada responsable nuevo. |
+| Tarea modificada | Alguien que no es responsable editó la tarea o cambió su estado o avance; o se quitó a un responsable. | A los responsables y a quien creó la tarea (o al que se quitó). |
+| Cambio de fecha de entrega | Cambió la fecha de vencimiento. | A los responsables. |
+| Avance registrado | Un responsable cambió el estado o el avance, o informó una novedad. | A quien creó la tarea y a los demás responsables. |
+| Nuevo comentario | Alguien comentó. | A los responsables y a quien creó la tarea. |
+| Mención en un comentario | Alguien etiquetó a un usuario con `@`. | Al usuario etiquetado. |
+| Próxima a vencer | Una tarea abierta vence dentro de `DIAS_AVISO_VENCIMIENTO` días o ya venció. Se revisa al arrancar el back y una vez por hora. | A cada responsable. |
 
 Nunca se le notifica a quien hizo la acción.

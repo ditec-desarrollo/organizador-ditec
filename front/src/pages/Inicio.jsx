@@ -17,6 +17,7 @@ import { useDatos, useUsuario } from "../context/contextos";
 import { useConsulta } from "../hooks/useConsulta";
 import { sesionApi } from "../services/api";
 import { textoVencimiento } from "../utils/fechas";
+import { nombresDeResponsables } from "../utils/opciones";
 
 const Indicador = ({ valor, texto, icono, color, onClick }) => (
   <button type="button" className={`cd-superficie org-indicador org-color--${color}`} onClick={onClick}>
@@ -27,7 +28,7 @@ const Indicador = ({ valor, texto, icono, color, onClick }) => (
 );
 
 // Tareas con su vencimiento (vencidas o próximas). Al tocar una se abre el detalle.
-const ListaVencimientos = ({ tareas, vacio, claseFecha }) => {
+export const ListaVencimientos = ({ tareas, vacio, claseFecha }) => {
   const { abrirTarea } = useDatos();
   if (tareas.length === 0) return <EstadoVacio titulo={vacio} icono={<TaskAltRoundedIcon />} />;
   return (
@@ -38,7 +39,7 @@ const ListaVencimientos = ({ tareas, vacio, claseFecha }) => {
             <span className="org-lista__cuerpo">
               <span className="org-lista__texto">{tarea.titulo}</span>
               <span className="org-lista__meta">
-                {tarea.nombre_proyecto} · {tarea.nombre_responsable || "Sin asignar"} · <span className={claseFecha}>{textoVencimiento(tarea)}</span>
+                {tarea.nombre_proyecto} · {nombresDeResponsables(tarea.responsables)} · <span className={claseFecha}>{textoVencimiento(tarea)}</span>
               </span>
             </span>
             <ChipPrioridad id={tarea.id_prioridad} nombre={tarea.nombre_prioridad} />
@@ -49,7 +50,7 @@ const ListaVencimientos = ({ tareas, vacio, claseFecha }) => {
   );
 };
 
-const AvanceDeProyectos = ({ proyectos }) => {
+export const AvanceDeProyectos = ({ proyectos }) => {
   const navigate = useNavigate();
   if (proyectos.length === 0) return <EstadoVacio titulo="Todavía no hay proyectos" />;
   return (

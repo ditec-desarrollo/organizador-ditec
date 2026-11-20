@@ -19,7 +19,8 @@ erDiagram
   proyecto ||--o{ proyecto_integrante : "tiene"
   usuario ||--o{ proyecto_integrante : "participa"
   proyecto ||--o{ tarea : "contiene"
-  usuario ||--o{ tarea : "responsable"
+  tarea ||--o{ tarea_responsable : "tiene"
+  usuario ||--o{ tarea_responsable : "es responsable"
   usuario ||--o{ tarea : "crea"
   estado_tarea ||--o{ tarea : "estado"
   prioridad ||--o{ tarea : "prioridad"
@@ -29,6 +30,8 @@ erDiagram
   estado_tarea ||--o{ tarea_actualizacion : "anterior / nuevo"
   tarea ||--o{ tarea_comentario : "comentarios"
   usuario ||--o{ tarea_comentario : "escribe"
+  tarea_comentario ||--o{ tarea_comentario_mencion : "menciona"
+  usuario ||--o{ tarea_comentario_mencion : "es mencionado"
   usuario ||--o{ notificacion : "recibe"
   tipo_notificacion ||--o{ notificacion : "tipo"
   tarea ||--o{ notificacion : "refiere"
@@ -75,6 +78,7 @@ erDiagram
     int id_proyecto_integrante PK
     int id_proyecto FK
     int id_usuario FK
+    tinyint es_responsable
     tinyint habilita
     int id_usuario_alta FK
     datetime fecha_alta
@@ -98,7 +102,6 @@ erDiagram
     int id_proyecto FK
     varchar titulo
     text descripcion
-    int id_usuario_responsable FK
     int id_prioridad FK
     int id_etarea FK
     tinyint porcentaje_avance
@@ -110,6 +113,15 @@ erDiagram
     tinyint archivada
     datetime fecha_archivada
     tinyint habilita
+    datetime fecha_alta
+    datetime fecha_modificacion
+  }
+  tarea_responsable {
+    int id_tarea_responsable PK
+    int id_tarea FK
+    int id_usuario FK
+    tinyint habilita
+    int id_usuario_alta FK
     datetime fecha_alta
     datetime fecha_modificacion
   }
@@ -138,6 +150,12 @@ erDiagram
     tinyint habilita
     datetime fecha_alta
     datetime fecha_modificacion
+  }
+  tarea_comentario_mencion {
+    int id_tarea_comentario_mencion PK
+    int id_tarea_comentario FK
+    int id_usuario FK
+    datetime fecha_alta
   }
   tipo_notificacion {
     int id_tnotificacion PK
@@ -177,7 +195,7 @@ erDiagram
 
 ### Catálogos
 
-Tienen ids fijos porque el código los usa como constantes ([`back/utils/constantes.js`](../back/utils/constantes.js)). Los valores se cargan en la migración `002`.
+Tienen ids fijos porque el código los usa como constantes ([`back/utils/constantes.js`](../back/utils/constantes.js)). Los valores se cargan en la migración `002` (y el tipo de notificación 7, en la `003`).
 
 | Tabla | Valores iniciales | Notas |
 |---|---|---|
@@ -186,7 +204,7 @@ Tienen ids fijos porque el código los usa como constantes ([`back/utils/constan
 | `estado_tarea` | 1 Pendiente, 2 En progreso, 3 En revisión, 4 Bloqueada, 5 Finalizada | `orden` es el orden de las columnas del tablero. `es_final = 1` marca que la tarea está terminada. |
 | `prioridad` | 1 Baja, 2 Media, 3 Alta, 4 Urgente | `orden`: mayor es más urgente. |
 | `tipo_actualizacion` | 1 Avance, 2 Novedad, 3 Dificultad o bloqueo, 4 Cambio de estado | El 4 lo registra el tablero al mover una tarjeta. |
-| `tipo_notificacion` | 1 Tarea asignada, 2 Tarea modificada, 3 Nuevo comentario, 4 Próxima a vencer, 5 Cambio de fecha de entrega, 6 Avance registrado | |
+| `tipo_notificacion` | 1 Tarea asignada, 2 Tarea modificada, 3 Nuevo comentario, 4 Próxima a vencer, 5 Cambio de fecha de entrega, 6 Avance registrado, 7 Mención en un comentario | |
 
 ### `usuario`
 
@@ -219,6 +237,8 @@ Quién puede entrar al Organizador y con qué rol. No guarda nombre, email ni co
 
 Relación muchos a muchos entre `proyecto` y `usuario`. Ser integrante es lo que da acceso al proyecto. Clave única `(id_proyecto, id_usuario)`: si a alguien se lo quita y se lo vuelve a sumar, se reutiliza la misma fila (`habilita`).
 
+`es_responsable` marca a los responsables del proyecto. Puede haber varios y es un dato informativo: se muestran destacados, pero los permisos siguen dependiendo del rol. Quien crea el proyecto queda marcado.
+
 ### `tarea`
 
 | Columna | Tipo | Obligatorio | Descripción |
@@ -227,7 +247,6 @@ Relación muchos a muchos entre `proyecto` y `usuario`. Ser integrante es lo que
 | `id_proyecto` | INT, FK | sí | |
 | `titulo` | VARCHAR(200) | sí | |
 | `descripcion` | TEXT | no | |
-| `id_usuario_responsable` | INT, FK | no | Responsable principal. `NULL` = sin asignar. |
 | `id_prioridad` | INT, FK | sí | |
 | `id_etarea` | INT, FK | sí | Estado. |
 | `porcentaje_avance` | TINYINT UNSIGNED | sí | 0 a 100 (`CHECK`). |
@@ -239,6 +258,12 @@ Relación muchos a muchos entre `proyecto` y `usuario`. Ser integrante es lo que
 | `habilita` | TINYINT(1) | sí | Borrado lógico. |
 | `fecha_alta`, `fecha_modificacion` | DATETIME | | `fecha_alta` es la fecha de creación. |
 
+Los responsables no están en esta tabla: van en `tarea_responsable`.
+
+### `tarea_responsable`
+
+Relación muchos a muchos entre `tarea` y `usuario`: una tarea puede tener varios responsables, o ninguno ("sin asignar"). Todos son iguales: cualquiera puede cambiar el estado y el avance, y a todos les llegan las notificaciones. Clave única `(id_tarea, id_usuario)`; quitar a un responsable pone `habilita = 0` y volver a sumarlo reutiliza la fila. `id_usuario_alta` es quién lo asignó.
+
 ### `tarea_actualizacion`
 
 Historial de seguimiento. **Solo se insertan filas**: nunca se editan ni se borran. Cada fila dice quién, cuándo, de qué tipo fue la actualización y, si cambiaron, el estado anterior y nuevo y el porcentaje anterior y nuevo. Los cuatro campos de "anterior / nuevo" quedan en `NULL` cuando ese dato no cambió.
@@ -246,6 +271,10 @@ Historial de seguimiento. **Solo se insertan filas**: nunca se editan ni se borr
 ### `tarea_comentario`
 
 Conversación de la tarea. `habilita = 0` cuando su autor (o un administrador) lo elimina.
+
+### `tarea_comentario_mencion`
+
+A quién se etiquetó (`@Nombre Apellido`) en cada comentario. Clave única `(id_tarea_comentario, id_usuario)`. Solo se guarda una mención si el nombre del usuario figura de verdad en el texto. El etiquetado recibe una notificación y, si no era integrante del proyecto, se lo suma.
 
 ### `notificacion`
 
@@ -267,7 +296,8 @@ La crea y mantiene el runner: anota qué archivos de `back/migrations` ya se apl
 | `tipo_usuario` – `usuario` | uno a muchos | `usuario.id_tusuario`. Cada usuario tiene un solo rol. |
 | `proyecto` – `usuario` (integrantes) | muchos a muchos | Tabla `proyecto_integrante`. |
 | `proyecto` – `tarea` | uno a muchos | `tarea.id_proyecto`. |
-| `usuario` – `tarea` (responsable) | uno a muchos | `tarea.id_usuario_responsable`, opcional. |
+| `tarea` – `usuario` (responsables) | muchos a muchos | Tabla `tarea_responsable`. |
+| `tarea_comentario` – `usuario` (menciones) | muchos a muchos | Tabla `tarea_comentario_mencion`. |
 | `tarea` – `tarea_actualizacion` / `tarea_comentario` | uno a muchos | `id_tarea`. |
 | `usuario` – `notificacion` | uno a muchos | `notificacion.id_usuario` (destinatario). |
 
@@ -280,7 +310,7 @@ Además de las claves primarias y únicas:
 | Índice | Para qué |
 |---|---|
 | `tarea (id_proyecto, archivada, id_etarea)` | Tablero y lista de un proyecto. |
-| `tarea (id_usuario_responsable, archivada, id_etarea)` | "Mis tareas" y el panel del colaborador. |
+| `tarea_responsable (id_usuario, habilita)` | "Mis tareas", el filtro por responsable y el panel del colaborador. |
 | `tarea (fecha_vencimiento)` | Vencidas, próximas a vencer y el aviso automático. |
 | `tarea (id_etarea, orden)` | Orden de las tarjetas en cada columna. |
 | `proyecto_integrante (id_usuario, habilita)` | Qué proyectos ve un usuario (se consulta en casi todos los pedidos). |
@@ -300,7 +330,9 @@ Además de las claves primarias y únicas:
 6. **Acceso por integrante.** No hay una tabla de permisos por proyecto: quien es integrante lo ve y, si su rol es supervisor, lo gestiona. Quien crea un proyecto queda como integrante.
 7. **Archivar no es borrar.** `archivado` / `archivada` sacan el proyecto o la tarea del trabajo diario pero siguen consultables; `habilita` es el borrado lógico.
 8. **`orden` único en toda la tabla `tarea`.** Reordenar una columna solo permuta valores que ya existen, así nunca choca con tarjetas que el usuario no ve por sus filtros o permisos.
-9. **Un responsable por tarea.** Es lo que se pidió para esta versión. Si más adelante hacen falta varios, se agrega una tabla `tarea_responsable` sin tocar el resto.
+9. **Varios responsables por tarea, en una tabla.** `tarea_responsable` reemplazó a la columna `tarea.id_usuario_responsable` (migración `003`, que pasó las asignaciones existentes). Se eliminó la columna para que no haya dos lugares que digan quién es responsable.
+10. **Responsable de proyecto como dato del integrante.** Un responsable siempre es integrante, así que es una columna de `proyecto_integrante` y no otra tabla.
+11. **Menciones en tabla propia.** Guardarlas aparte del texto permite notificar y resaltar la mención sin interpretar el comentario cada vez.
 
 ## Migraciones
 

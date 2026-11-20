@@ -19,7 +19,16 @@ export const documentoDePersona = (params) => {
   return documento;
 };
 
-export const datosUsuarioNuevo = (body) => {
+// Búsqueda de personas por texto libre (afiliado, nombre, apellido, CUIL o email): devuelve las palabras.
+// Se piden al menos 3 caracteres para no recorrer toda la base de Ciudad Digital por una letra.
+export const palabrasDeBusqueda = (query) => {
+  const v = new Validador(query);
+  const buscar = v.texto("buscar", { requerido: true, min: 3, max: 100 });
+  v.verificar();
+  return buscar.split(/\s+/).slice(0, 6);
+};
+
+export const datosUsuarioNuevo =(body) => {
   const v = new Validador(body);
   const datos = {
     id_persona: v.entero("id_persona", { requerido: true }),
