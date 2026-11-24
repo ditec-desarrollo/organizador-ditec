@@ -237,6 +237,7 @@ Obligatorios: `commit_sha` (el hash completo), `repositorio` y `mensaje`. Respon
 |---|---|
 | `TAREA_CREADA` | Tarea nueva en el proyecto del repositorio: finalizada, prioridad media, a nombre del autor (creador y responsable). El título es la primera línea del mensaje. Si el autor no era integrante del proyecto, se lo suma. |
 | `TAREA_ACTUALIZADA` | El mensaje decía `tarea #N`: se registró una novedad en esa tarea (y pasó a "En progreso" si estaba pendiente). Solo si la tarea es de ese proyecto y el autor la puede actualizar; si no, se crea una tarea nueva. |
+| `TAREA_FINALIZADA` | Como el anterior, pero el mensaje además pedía cerrarla con un verbo de cierre pegado a la referencia (`finaliza tarea #N`, `cierra la tarea #N`, `tarea #N terminada`…): la tarea queda finalizada, con avance 100 %. |
 | `IGNORADO_MERGE` | Es un merge: no genera nada. |
 | `SIN_PROYECTO` | Pendiente: el repositorio no está vinculado a ningún proyecto. |
 | `SIN_USUARIO` | Pendiente: el autor no corresponde a ningún usuario habilitado. |

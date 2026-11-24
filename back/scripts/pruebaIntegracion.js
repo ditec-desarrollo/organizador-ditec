@@ -652,6 +652,38 @@ const probarIntegracionConGit = async ({ admin, supervisor, colaborador, proyect
     assert.notEqual(sinTarea.id_tarea, 999999);
   });
 
+  await paso('commits: "finaliza tarea #N" además deja la tarea finalizada', async () => {
+    const deSupervisor = { autor_nombre: "Supervisor Prueba", autor_email: null };
+    const abierta = await tareasService.crear(supervisor, {
+      id_proyecto: proyecto.id_proyecto,
+      titulo: "Tarea que cierra un commit",
+      descripcion: null,
+      ids_responsables: [colaborador.id_usuario],
+      id_prioridad: PRIORIDADES.MEDIA,
+      id_etarea: ESTADOS_TAREA.EN_PROGRESO,
+      porcentaje_avance: 40,
+      fecha_inicio: null,
+      fecha_vencimiento: null,
+    });
+
+    // Nombrarla sin verbo de cierre solo deja la novedad.
+    const avance = await integracionesService.recibirCommit(commit(20, { ...deSupervisor, mensaje: `sigo con esto (tarea #${abierta.id_tarea})` }));
+    assert.equal(avance.resultado, RESULTADOS_COMMIT.TAREA_ACTUALIZADA);
+    assert.equal((await tareasService.obtener(admin, abierta.id_tarea)).id_etarea, ESTADOS_TAREA.EN_PROGRESO);
+
+    const cierre = await integracionesService.recibirCommit(commit(21, { ...deSupervisor, mensaje: `Último ajuste\n\nFinaliza la tarea #${abierta.id_tarea}` }));
+    assert.equal(cierre.resultado, RESULTADOS_COMMIT.TAREA_FINALIZADA);
+    assert.equal(cierre.id_tarea, abierta.id_tarea);
+    assert.equal(cierre.pendiente, false);
+    const cerrada = await tareasService.obtener(admin, abierta.id_tarea);
+    assert.equal(cerrada.id_etarea, ESTADOS_TAREA.FINALIZADA);
+    assert.equal(cerrada.porcentaje_avance, 100);
+    assert.ok(cerrada.fecha_finalizacion);
+    const [ultima] = await tareasService.listarActualizaciones(admin, abierta.id_tarea);
+    assert.equal(ultima.id_etarea_nuevo, ESTADOS_TAREA.FINALIZADA);
+    assert.ok(ultima.comentario.includes("Último ajuste"));
+  });
+
   await paso("commits: la identidad fija de la máquina gana, y un autor que no era integrante se suma al proyecto", async () => {
     await usuariosRepository.crear({ id_persona: -5, id_tusuario: ROLES.COLABORADOR, id_usuario_alta: null });
     const externo = await usuariosRepository.buscarPorPersona(-5);

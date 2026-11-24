@@ -76,6 +76,7 @@ export const ACCIONES = {
 export const RESULTADOS_COMMIT = {
   TAREA_CREADA: "TAREA_CREADA",
   TAREA_ACTUALIZADA: "TAREA_ACTUALIZADA", // el mensaje nombraba una tarea ("tarea #12"): se le registró una novedad
+  TAREA_FINALIZADA: "TAREA_FINALIZADA", // además pedía cerrarla ("finaliza tarea #12"): quedó finalizada
   IGNORADO_MERGE: "IGNORADO_MERGE",
   // Pendientes: falta configurar algo. Se resuelven solos al reprocesar una vez que se configura.
   SIN_PROYECTO: "SIN_PROYECTO", // el repositorio no está vinculado a ningún proyecto

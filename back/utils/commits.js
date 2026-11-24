@@ -19,6 +19,24 @@ export const tareaReferida = (mensaje) => {
   return partes ? Number(partes[1]) : null;
 };
 
+// El commit además termina la tarea si lo dice con un verbo de cierre pegado a la referencia:
+//   "finaliza tarea #12", "cierra la tarea #12", "terminé la tarea #12", "completa tarea #12"
+//   "tarea #12 finalizada", "tarea #12 cerrada", "tarea #12 terminada", "tarea #12 completada"
+// Sin ese verbo ("avance en tarea #12") la tarea solo recibe la novedad y sigue abierta.
+// "lista" no cuenta a propósito: "tarea #12 lista para revisar" no es una tarea terminada.
+const LETRAS = "[a-záéíóúñ]*";
+const VERBO_DE_CIERRE = `(?:finaliz|cierr|cerr|termin|complet)${LETRAS}`;
+const NUMERO = "#\\s*(\\d{1,9})(?!\\d)";
+const CIERRE_ANTES = new RegExp(`(?:^|[^a-záéíóúñ])${VERBO_DE_CIERRE}\\s+(?:la\\s+)?tarea\\s*${NUMERO}`, "i");
+const CIERRE_DESPUES = new RegExp(`\\btarea\\s*${NUMERO}\\s+(?:finaliz|cerr|termin|complet)ada(?![a-záéíóúñ])`, "i");
+
+// true si el mensaje pide finalizar esa tarea (la misma que devuelve tareaReferida).
+export const finalizaTarea = (mensaje, id_tarea) => {
+  const texto = String(mensaje ?? "");
+  const partes = CIERRE_ANTES.exec(texto) ?? CIERRE_DESPUES.exec(texto);
+  return Boolean(partes) && Number(partes[1]) === id_tarea;
+};
+
 // El título es la primera línea del mensaje. La tarea exige al menos 3 caracteres:
 // un mensaje más corto ("ok") se completa con el hash para que se pueda identificar.
 export const tituloDeCommit = (mensaje, commit_sha) => {

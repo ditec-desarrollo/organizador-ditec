@@ -15,6 +15,7 @@ import { mostrarFechaHora } from "../utils/fechas";
 const RESULTADOS = {
   TAREA_CREADA: { texto: "Tarea creada", color: "verde" },
   TAREA_ACTUALIZADA: { texto: "Novedad en tarea", color: "azul" },
+  TAREA_FINALIZADA: { texto: "Tarea finalizada", color: "verde" },
   IGNORADO_MERGE: { texto: "Merge (ignorado)", color: "gris" },
   SIN_PROYECTO: { texto: "Falta vincular el repositorio", color: "naranja", falta: "Vinculalo desde la pestaña Repositorios del proyecto." },
   SIN_USUARIO: { texto: "Autor desconocido", color: "naranja", falta: "Cargá esa identidad de git en el usuario que corresponde (Usuarios → Editar)." },

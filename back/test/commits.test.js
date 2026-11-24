@@ -6,6 +6,7 @@ import {
   descripcionDeCommit,
   esMerge,
   fechaHoraLocal,
+  finalizaTarea,
   novedadDeCommit,
   tareaReferida,
   tituloDeCommit,
@@ -64,6 +65,40 @@ test("solo 'tarea #N' refiere a una tarea: '#N' solo es de GitHub", () => {
   assert.equal(tareaReferida("fix #12"), null);
   assert.equal(tareaReferida("Merge pull request #149"), null);
   assert.equal(tareaReferida("tarea 12 lista"), null);
+});
+
+test("un verbo de cierre pegado a la referencia finaliza la tarea", () => {
+  for (const mensaje of [
+    "Notificaciones: abrir la tarea en comentarios (finaliza tarea #77)",
+    "Finaliza la tarea #77",
+    "cierra tarea #77",
+    "Cerré la tarea #77 con este cambio",
+    "terminé tarea#77",
+    "completa la tarea # 77",
+    "tarea #77 finalizada",
+    "Tarea #77 cerrada: validaciones del formulario",
+    "listo el login, tarea #77 terminada",
+    "tarea #77 completada",
+  ]) {
+    assert.equal(finalizaTarea(mensaje, 77), true, mensaje);
+  }
+});
+
+test("sin verbo de cierre, o si el cierre es de otra tarea, la tarea sigue abierta", () => {
+  for (const mensaje of [
+    "avance en el login (tarea #77)",
+    "tarea #77: validaciones del formulario",
+    "determina el estado de la tarea #77",
+    "finaliza el refactor, sigue la tarea #77",
+    "tarea #77 lista para revisar",
+    "tarea #77 terminadas las validaciones",
+    "finaliza tarea #770",
+    "finaliza tarea #7",
+    "cierra #77",
+    "",
+  ]) {
+    assert.equal(finalizaTarea(mensaje, 77), false, mensaje);
+  }
 });
 
 test("el título es la primera línea, y un mensaje muy corto se completa con el hash", () => {

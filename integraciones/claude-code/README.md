@@ -4,6 +4,7 @@ Cada vez que Claude Code hace un `git commit` en cualquier proyecto, un hook le 
 
 - crea una **tarea finalizada** en el proyecto al que pertenece el repositorio, a nombre de quien hizo el commit (el título es la primera línea del mensaje);
 - si el mensaje dice **`tarea #12`**, en vez de crear una tarea anota el commit como novedad de la tarea 12 (y si estaba pendiente la pasa a "En progreso");
+- si además lo dice con un verbo de cierre (**`finaliza tarea #12`**, `cierra la tarea #12`, `tarea #12 terminada`), la tarea 12 queda finalizada;
 - los merges se ignoran.
 
 ```

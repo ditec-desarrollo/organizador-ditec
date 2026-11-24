@@ -335,7 +335,7 @@ Con qué nombre o email firma sus commits cada usuario, en minúsculas. Clave ú
 
 ### `commit_recibido`
 
-Una fila por commit que avisó el hook de Claude Code. **No se borra.** `commit_sha` es único: es lo que impide que un reenvío genere otra tarea. `resultado` dice qué se hizo (`TAREA_CREADA`, `TAREA_ACTUALIZADA`, `IGNORADO_MERGE`) o por qué quedó pendiente (`SIN_PROYECTO`, `SIN_USUARIO`, `PROYECTO_ARCHIVADO`); los códigos están en `RESULTADOS_COMMIT` de [`back/utils/constantes.js`](../back/utils/constantes.js). `id_proyecto`, `id_usuario` e `id_tarea` se completan a medida que se resuelven. Guarda los datos tal como llegaron (repositorio, carpeta, autor, mensaje) para poder reprocesar un pendiente sin volver a pedirlos.
+Una fila por commit que avisó el hook de Claude Code. **No se borra.** `commit_sha` es único: es lo que impide que un reenvío genere otra tarea. `resultado` dice qué se hizo (`TAREA_CREADA`, `TAREA_ACTUALIZADA`, `TAREA_FINALIZADA`, `IGNORADO_MERGE`) o por qué quedó pendiente (`SIN_PROYECTO`, `SIN_USUARIO`, `PROYECTO_ARCHIVADO`); los códigos están en `RESULTADOS_COMMIT` de [`back/utils/constantes.js`](../back/utils/constantes.js). `id_proyecto`, `id_usuario` e `id_tarea` se completan a medida que se resuelven. Guarda los datos tal como llegaron (repositorio, carpeta, autor, mensaje) para poder reprocesar un pendiente sin volver a pedirlos.
 
 ### `migracion`
 

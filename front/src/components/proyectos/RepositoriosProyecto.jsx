@@ -58,7 +58,7 @@ const RepositoriosProyecto = ({ proyecto }) => {
       <p className="org-celda-secundaria" style={{ fontSize: "0.875rem", margin: "0 0 12px" }}>
         Cada commit que Claude Code hace en estos repositorios se registra solo como una tarea finalizada de este proyecto, a nombre de
         quien lo hizo. Si el mensaje del commit dice <strong>tarea #12</strong>, en vez de crear una tarea se anota como novedad en la
-        tarea 12.
+        tarea 12; y si dice <strong>finaliza tarea #12</strong>, además la deja finalizada.
       </p>
 
       {puedeGestionar && (

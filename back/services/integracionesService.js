@@ -14,7 +14,7 @@ import {
   RESULTADOS_COMMIT_PENDIENTES,
   TIPOS_ACTUALIZACION,
 } from "../utils/constantes.js";
-import { descripcionDeCommit, esMerge, novedadDeCommit, shaCorto, tareaReferida, tituloDeCommit } from "../utils/commits.js";
+import { descripcionDeCommit, esMerge, finalizaTarea, novedadDeCommit, shaCorto, tareaReferida, tituloDeCommit } from "../utils/commits.js";
 import { normalizarAlias } from "../utils/repositorio.js";
 
 // Integración con git: el hook de Claude Code avisa cada commit a POST /integraciones/commits
@@ -24,6 +24,7 @@ import { normalizarAlias } from "../utils/repositorio.js";
 //   repositorio sin vincular a un proyecto -> queda pendiente (SIN_PROYECTO)
 //   autor que no es usuario del Organizador-> queda pendiente (SIN_USUARIO)
 //   el mensaje dice "tarea #12"            -> novedad en la tarea 12 (si es de ese proyecto y el autor la puede actualizar)
+//   el mensaje dice "finaliza tarea #12"   -> además la tarea 12 queda finalizada
 //   cualquier otro                         -> tarea nueva, ya finalizada, a nombre del autor
 //
 // Los pendientes no se pierden: se vuelven a procesar solos cuando se vincula un repositorio o se
@@ -43,26 +44,32 @@ const usuarioDeCommit = async (connection, commit) => {
 };
 
 // El commit nombra una tarea: se registra como novedad de esa tarea en vez de crear otra.
-// Devuelve false (y entonces se crea una tarea nueva) si la tarea no existe, es de otro proyecto,
-// está archivada o el autor no la podría actualizar desde la pantalla.
+// Si además pide cerrarla ("finaliza tarea #12"), la tarea queda finalizada (100 %).
+// Devuelve null (y entonces se crea una tarea nueva) si la tarea no existe, es de otro proyecto,
+// está archivada o el autor no la podría actualizar desde la pantalla; si no, el resultado para anotar.
 const avanzarTarea = async (connection, usuario, proyecto, id_tarea, commit) => {
   let acceso;
   try {
     acceso = await accesoATarea(usuario, id_tarea, connection);
   } catch (error) {
-    if (error instanceof CustomError) return false;
+    if (error instanceof CustomError) return null;
     throw error;
   }
   const { tarea, puedeActualizar } = acceso;
-  if (!puedeActualizar || tarea.id_proyecto !== proyecto.id_proyecto || tarea.archivada === 1) return false;
+  if (!puedeActualizar || tarea.id_proyecto !== proyecto.id_proyecto || tarea.archivada === 1) return null;
+
+  const finaliza = finalizaTarea(commit.mensaje, id_tarea);
+  let id_etarea; // sin definir = la tarea queda en el estado en que estaba
+  if (finaliza) id_etarea = ESTADOS_TAREA.FINALIZADA;
+  // Si todavía estaba pendiente, un commit quiere decir que se empezó a trabajar en ella.
+  else if (tarea.id_etarea === ESTADOS_TAREA.PENDIENTE) id_etarea = ESTADOS_TAREA.EN_PROGRESO;
 
   await aplicarSeguimiento(connection, usuario, tarea, {
     id_tactualizacion: TIPOS_ACTUALIZACION.NOVEDAD,
-    // Si todavía estaba pendiente, un commit quiere decir que se empezó a trabajar en ella.
-    id_etarea: tarea.id_etarea === ESTADOS_TAREA.PENDIENTE ? ESTADOS_TAREA.EN_PROGRESO : undefined,
+    id_etarea,
     comentario: novedadDeCommit(commit),
   });
-  return true;
+  return finaliza ? RESULTADOS_COMMIT.TAREA_FINALIZADA : RESULTADOS_COMMIT.TAREA_ACTUALIZADA;
 };
 
 // Tarea nueva a nombre del autor, ya finalizada: el trabajo que describe el commit está hecho.
@@ -115,9 +122,8 @@ const resolver = async (connection, commit) => {
   const usuario = await usuariosRepository.obtener(id_usuario, connection);
 
   const id_referida = tareaReferida(commit.mensaje);
-  if (id_referida && (await avanzarTarea(connection, usuario, proyecto, id_referida, commit))) {
-    return { id_proyecto, id_usuario, id_tarea: id_referida, resultado: RESULTADOS_COMMIT.TAREA_ACTUALIZADA };
-  }
+  const avance = id_referida ? await avanzarTarea(connection, usuario, proyecto, id_referida, commit) : null;
+  if (avance) return { id_proyecto, id_usuario, id_tarea: id_referida, resultado: avance };
 
   const id_tarea = await crearTareaDeCommit(connection, usuario, proyecto, commit);
   return { id_proyecto, id_usuario, id_tarea, resultado: RESULTADOS_COMMIT.TAREA_CREADA };
@@ -129,6 +135,7 @@ const detalleDe = (commit) => {
   return {
     [RESULTADOS_COMMIT.TAREA_CREADA]: `Se creó la tarea #${commit.id_tarea}`,
     [RESULTADOS_COMMIT.TAREA_ACTUALIZADA]: `Se registró una novedad en la tarea #${commit.id_tarea}`,
+    [RESULTADOS_COMMIT.TAREA_FINALIZADA]: `Se finalizó la tarea #${commit.id_tarea}`,
     [RESULTADOS_COMMIT.IGNORADO_MERGE]: "Es un merge: no genera tarea",
     [RESULTADOS_COMMIT.SIN_PROYECTO]: `El repositorio "${commit.repositorio}" no está vinculado a ningún proyecto del Organizador`,
     [RESULTADOS_COMMIT.SIN_USUARIO]: `El autor ${autor} no corresponde a ningún usuario habilitado del Organizador`,
@@ -178,7 +185,7 @@ export const reprocesarPendientes = async () => {
     try {
       const { resultado, pendiente } = await enTransaccion((connection) => procesar(connection, commit_sha));
       if (resultado === RESULTADOS_COMMIT.TAREA_CREADA) conteo.tareas_creadas += 1;
-      else if (resultado === RESULTADOS_COMMIT.TAREA_ACTUALIZADA) conteo.tareas_actualizadas += 1;
+      else if ([RESULTADOS_COMMIT.TAREA_ACTUALIZADA, RESULTADOS_COMMIT.TAREA_FINALIZADA].includes(resultado)) conteo.tareas_actualizadas += 1;
       else if (pendiente) conteo.siguen_pendientes += 1;
     } catch (error) {
       conteo.con_error += 1;
