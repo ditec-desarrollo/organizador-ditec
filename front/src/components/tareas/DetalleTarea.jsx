@@ -51,12 +51,15 @@ const FichaTarea = ({ tarea }) => (
   </dl>
 );
 
+const SOLAPAS = ["seguimiento", "historial", "comentarios"];
+
 // Detalle de una tarea: datos, seguimiento, historial y comentarios.
 // Lo monta LayoutPrincipal cuando la URL trae ?tarea=<id>, así se abre desde cualquier pantalla.
-const DetalleTarea = ({ idTarea, onCerrar }) => {
+// `solapaInicial` (de &solapa=<nombre>) elige en cuál se abre; si no viene o no existe, en Seguimiento.
+const DetalleTarea = ({ idTarea, solapaInicial, onCerrar }) => {
   const { refrescar } = useDatos();
   const consulta = useConsulta(() => tareasApi.obtener(idTarea), [idTarea]);
-  const [pestana, setPestana] = useState("seguimiento");
+  const [pestana, setPestana] = useState(SOLAPAS.includes(solapaInicial) ? solapaInicial : "seguimiento");
   const [editando, setEditando] = useState(false);
   const tarea = consulta.datos;
 
