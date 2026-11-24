@@ -72,6 +72,23 @@ export const ACCIONES = {
   USUARIO_EDITADO: "USUARIO_EDITADO",
 };
 
+// commit_recibido.resultado: qué se hizo con cada commit que avisó el hook.
+export const RESULTADOS_COMMIT = {
+  TAREA_CREADA: "TAREA_CREADA",
+  TAREA_ACTUALIZADA: "TAREA_ACTUALIZADA", // el mensaje nombraba una tarea ("tarea #12"): se le registró una novedad
+  IGNORADO_MERGE: "IGNORADO_MERGE",
+  // Pendientes: falta configurar algo. Se resuelven solos al reprocesar una vez que se configura.
+  SIN_PROYECTO: "SIN_PROYECTO", // el repositorio no está vinculado a ningún proyecto
+  SIN_USUARIO: "SIN_USUARIO", // el autor del commit no corresponde a ningún usuario habilitado
+  PROYECTO_ARCHIVADO: "PROYECTO_ARCHIVADO",
+};
+
+export const RESULTADOS_COMMIT_PENDIENTES = [
+  RESULTADOS_COMMIT.SIN_PROYECTO,
+  RESULTADOS_COMMIT.SIN_USUARIO,
+  RESULTADOS_COMMIT.PROYECTO_ARCHIVADO,
+];
+
 export const esAdmin = (usuario) => Number(usuario?.id_tusuario) === ROLES.ADMINISTRADOR;
 export const esSupervisor = (usuario) => Number(usuario?.id_tusuario) === ROLES.SUPERVISOR;
 // Administradores y supervisores: los que pueden crear proyectos y tareas.

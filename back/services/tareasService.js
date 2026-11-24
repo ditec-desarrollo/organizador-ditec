@@ -45,44 +45,58 @@ export const obtener = async (usuario, id_tarea) => {
 
 // ───────────── Alta y edición (quien gestiona el proyecto) ─────────────
 
+// Inserta la tarea con sus responsables, la bitácora y el aviso de asignación, dentro de la transacción
+// de quien la llama. No valida permisos: eso lo hace antes quien la llama (crear, acá abajo, o la
+// integración con git, que crea tareas a nombre del autor del commit). Devuelve el id de la tarea.
+// `origen` se agrega al texto de la bitácora ("a partir de un commit").
+export const insertarTarea = async (connection, usuario, proyecto, datos, { origen = "" } = {}) => {
+  const estado = await buscarEstado(datos.id_etarea ?? ESTADOS_TAREA.PENDIENTE, connection);
+  const finalizada = estado.es_final === 1;
+
+  const id = await tareasRepository.crear(
+    {
+      ...datos,
+      id_etarea: estado.id_etarea,
+      porcentaje_avance: finalizada ? 100 : (datos.porcentaje_avance ?? 0),
+      finalizada,
+      orden: await tareasRepository.siguienteOrden(connection),
+      id_usuario_alta: usuario.id_usuario,
+    },
+    connection,
+  );
+  await tareasRepository.reemplazarResponsables(id, datos.ids_responsables, usuario.id_usuario, connection);
+  await actividadRepository.registrar(
+    {
+      id_usuario: usuario.id_usuario,
+      accion: ACCIONES.TAREA_CREADA,
+      id_proyecto: datos.id_proyecto,
+      id_tarea: id,
+      descripcion: `creó la tarea "${datos.titulo}"${origen ? ` ${origen}` : ""}`,
+    },
+    connection,
+  );
+  await notificar(
+    {
+      destinatarios: datos.ids_responsables,
+      id_usuario_origen: usuario.id_usuario,
+      id_tnotificacion: TIPOS_NOTIFICACION.TAREA_ASIGNADA,
+      id_tarea: id,
+      id_proyecto: datos.id_proyecto,
+      texto: `Se te asignó la tarea "${datos.titulo}" (${proyecto.nombre_proyecto})`,
+    },
+    connection,
+  );
+  return id;
+};
+
 export const crear = async (usuario, datos) => {
   const { proyecto } = await exigirGestionDeProyecto(usuario, datos.id_proyecto);
   exigirProyectoActivo(proyecto);
   await exigirResponsablesIntegrantes(datos.id_proyecto, datos.ids_responsables);
+  // Se valida antes de abrir la transacción: un estado inválido es un error del pedido.
+  await buscarEstado(datos.id_etarea ?? ESTADOS_TAREA.PENDIENTE);
 
-  const estado = await buscarEstado(datos.id_etarea ?? ESTADOS_TAREA.PENDIENTE);
-  const finalizada = estado.es_final === 1;
-
-  const id_tarea = await enTransaccion(async (connection) => {
-    const id = await tareasRepository.crear(
-      {
-        ...datos,
-        id_etarea: estado.id_etarea,
-        porcentaje_avance: finalizada ? 100 : (datos.porcentaje_avance ?? 0),
-        finalizada,
-        orden: await tareasRepository.siguienteOrden(connection),
-        id_usuario_alta: usuario.id_usuario,
-      },
-      connection,
-    );
-    await tareasRepository.reemplazarResponsables(id, datos.ids_responsables, usuario.id_usuario, connection);
-    await actividadRepository.registrar(
-      { id_usuario: usuario.id_usuario, accion: ACCIONES.TAREA_CREADA, id_proyecto: datos.id_proyecto, id_tarea: id, descripcion: `creó la tarea "${datos.titulo}"` },
-      connection,
-    );
-    await notificar(
-      {
-        destinatarios: datos.ids_responsables,
-        id_usuario_origen: usuario.id_usuario,
-        id_tnotificacion: TIPOS_NOTIFICACION.TAREA_ASIGNADA,
-        id_tarea: id,
-        id_proyecto: datos.id_proyecto,
-        texto: `Se te asignó la tarea "${datos.titulo}" (${proyecto.nombre_proyecto})`,
-      },
-      connection,
-    );
-    return id;
-  });
+  const id_tarea = await enTransaccion((connection) => insertarTarea(connection, usuario, proyecto, datos));
   return obtener(usuario, id_tarea);
 };
 
@@ -174,7 +188,8 @@ export const archivar = async (usuario, id_tarea, archivada) => {
 // Aplica un cambio de estado y/o avance con su comentario, y deja el registro en el historial.
 // Es el único camino por el que cambian tarea.id_etarea y tarea.porcentaje_avance,
 // así el historial nunca queda desfasado de la tarea.
-const aplicarSeguimiento = async (connection, usuario, tarea, { id_tactualizacion, id_etarea, porcentaje_avance, comentario }) => {
+// Tampoco valida permisos: los valida quien la llama (exigirPuedeActualizar, o la integración con git).
+export const aplicarSeguimiento = async (connection, usuario, tarea, { id_tactualizacion, id_etarea, porcentaje_avance, comentario }) => {
   const estadoNuevo = await buscarEstado(id_etarea ?? tarea.id_etarea, connection);
   const cambiaEstado = estadoNuevo.id_etarea !== tarea.id_etarea;
 

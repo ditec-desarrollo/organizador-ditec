@@ -4,7 +4,7 @@ API REST sobre HTTP y JSON. En desarrollo corre en `http://localhost:4010`.
 
 ## Reglas generales
 
-- **Autenticación:** todas las rutas, salvo `GET /salud`, exigen el token de Ciudad Digital en la cabecera `Authorization` (tal cual, o con el prefijo `Bearer `). Sin token válido: `401 { "message": "Invalid token" }`.
+- **Autenticación:** todas las rutas, salvo `GET /salud` y `POST /integraciones/commits` (que va con clave de integración, ver "Integración con git"), exigen el token de Ciudad Digital en la cabecera `Authorization` (tal cual, o con el prefijo `Bearer `). Sin token válido: `401 { "message": "Invalid token" }`.
 - **Usuario habilitado:** salvo `GET /usuarios/authStatus`, además hay que ser usuario habilitado del Organizador. Si no: `403`.
 - **Errores:** siempre `{ "message": "…" }`. Los errores de validación (`400`) agregan `errores` con un mensaje por campo:
 
@@ -77,6 +77,9 @@ Una tarea puede tener varios responsables y todos pueden actualizarla. Ser respo
 | `GET /usuarios/persona/:documento` | admin | Busca una persona de Ciudad Digital por CUIL (11 números). Devuelve la persona + `ya_registrado`. |
 | `POST /usuarios` | admin | Alta. Body: `{ id_persona, id_tusuario }`. |
 | `PUT /usuarios/:id_usuario` | admin | Body: `{ id_tusuario, habilita }`. No permite dejar el sistema sin administradores habilitados (`409`). |
+| `GET /usuarios/:id_usuario/alias-git` | admin | Identidades de git del usuario: `[{ id_usuario_alias_git, alias, fecha_alta }]`. |
+| `POST /usuarios/:id_usuario/alias-git` | admin | Body: `{ alias }` (nombre o email con el que firma sus commits). `409` si ya es de otro usuario. Devuelve la lista. |
+| `DELETE /usuarios/:id_usuario/alias-git/:id_usuario_alias_git` | admin | Quita el alias. Devuelve la lista. |
 
 ## Proyectos
 
@@ -84,13 +87,16 @@ Una tarea puede tener varios responsables y todos pueden actualizarla. Ser respo
 |---|---|---|
 | `GET /proyectos` | usuario | Proyectos visibles, con resumen (`total_tareas`, `tareas_finalizadas`, `tareas_vencidas`, `avance`, `total_integrantes`, `nombres_responsables`). Filtros: `buscar`, `id_eproyecto`, `archivado` (por defecto `0`). |
 | `POST /proyectos` | admin, supervisor | Crea el proyecto y suma a quien lo crea como integrante y responsable. |
-| `GET /proyectos/:id_proyecto` | integrante | Detalle + `integrantes` + `puede_gestionar`. |
+| `GET /proyectos/:id_proyecto` | integrante | Detalle + `integrantes` + `repositorios` + `puede_gestionar`. |
 | `PUT /proyectos/:id_proyecto` | gestor | Edita los datos. |
 | `PATCH /proyectos/:id_proyecto/archivar` | gestor | Body: `{ archivado: 1 \| 0 }`. |
 | `GET /proyectos/:id_proyecto/integrantes` | integrante | Integrantes con sus tareas abiertas y `es_responsable`. |
 | `POST /proyectos/:id_proyecto/integrantes` | gestor | Body: `{ id_usuario }`. |
 | `PATCH /proyectos/:id_proyecto/integrantes/:id_usuario` | gestor | Body: `{ es_responsable: 1 \| 0 }`. Marca o desmarca al integrante como responsable del proyecto. Puede haber varios. |
 | `DELETE /proyectos/:id_proyecto/integrantes/:id_usuario` | gestor | Quita al integrante. `409` si tiene tareas sin finalizar en el proyecto. |
+| `GET /proyectos/:id_proyecto/repositorios` | integrante | Repositorios de git vinculados: `[{ id_proyecto_repositorio, repositorio, fecha_alta }]`. |
+| `POST /proyectos/:id_proyecto/repositorios` | gestor | Body: `{ repositorio }` (dirección de GitHub o nombre de carpeta; se guarda normalizado). `409` si ya está vinculado a un proyecto. Devuelve la lista. |
+| `DELETE /proyectos/:id_proyecto/repositorios/:id_proyecto_repositorio` | gestor | Desvincula. Devuelve la lista. |
 
 Body de `POST` y `PUT`:
 
@@ -185,6 +191,61 @@ En el texto de un comentario se etiqueta con `@Nombre Apellido` y se mandan en `
 - Solo cuenta un id si el nombre de ese usuario figura en el texto precedido por `@`. Los demás se ignoran.
 - Se puede etiquetar a cualquier usuario habilitado. Si no es integrante del proyecto, se lo suma como integrante (queda registrado en la actividad quién lo sumó).
 - El etiquetado recibe la notificación "Mención en un comentario" en lugar de la de "Nuevo comentario".
+
+## Integración con git
+
+El hook de Claude Code ([`integraciones/claude-code`](../integraciones/claude-code/README.md)) avisa cada commit y el back lo convierte en una tarea.
+
+| Método y ruta | Quién | Descripción |
+|---|---|---|
+| `POST /integraciones/commits` | clave de integración | Recibe un commit. No lleva token: lleva la cabecera `X-Api-Key` con el valor de `INTEGRACION_API_KEY`. Sin clave o con otra: `401`. Si el back no tiene esa variable: `503`. |
+| `GET /integraciones/commits` | admin | Commits recibidos, del más nuevo al más viejo, con `nombre_proyecto`, `nombre_usuario` y `titulo_tarea`. Filtros: `solo_pendientes=1`, `cantidad` (máx. 200, por defecto 50). |
+| `POST /integraciones/commits/reprocesar` | admin | Vuelve a intentar con los pendientes. Devuelve `{ revisados, tareas_creadas, tareas_actualizadas, siguen_pendientes, con_error }`. |
+
+Body de `POST /integraciones/commits`:
+
+```json
+{
+  "commit_sha": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+  "repositorio": "https://github.com/ditec-desarrollo/gaf-backend.git",
+  "carpeta": "GAF-Back",
+  "rama": "dev",
+  "autor_nombre": "Nombre Apellido",
+  "autor_email": "alguien@smt.gob.ar",
+  "autor_alias": "nombre.apellido",
+  "mensaje": "arreglos en roles y permisos de usuario",
+  "fecha": "2026-11-24T10:15:30-03:00",
+  "es_merge": false
+}
+```
+
+Obligatorios: `commit_sha` (el hash completo), `repositorio` y `mensaje`. Responde `201` si creó una tarea y `200` en el resto de los casos:
+
+```json
+{
+  "commit_sha": "a1b2c3d4…",
+  "resultado": "TAREA_CREADA",
+  "pendiente": false,
+  "repetido": false,
+  "id_proyecto": 3,
+  "id_tarea": 41,
+  "detalle": "Se creó la tarea #41"
+}
+```
+
+| `resultado` | Qué pasó |
+|---|---|
+| `TAREA_CREADA` | Tarea nueva en el proyecto del repositorio: finalizada, prioridad media, a nombre del autor (creador y responsable). El título es la primera línea del mensaje. Si el autor no era integrante del proyecto, se lo suma. |
+| `TAREA_ACTUALIZADA` | El mensaje decía `tarea #N`: se registró una novedad en esa tarea (y pasó a "En progreso" si estaba pendiente). Solo si la tarea es de ese proyecto y el autor la puede actualizar; si no, se crea una tarea nueva. |
+| `IGNORADO_MERGE` | Es un merge: no genera nada. |
+| `SIN_PROYECTO` | Pendiente: el repositorio no está vinculado a ningún proyecto. |
+| `SIN_USUARIO` | Pendiente: el autor no corresponde a ningún usuario habilitado. |
+| `PROYECTO_ARCHIVADO` | Pendiente: el proyecto está archivado. |
+
+- **A qué proyecto va:** el que tenga vinculado el `repositorio` (se compara normalizado: sin protocolo, credenciales, `.git` ni mayúsculas) o, si no, la `carpeta`.
+- **De quién es:** se busca `autor_alias`, `autor_email` y `autor_nombre`, en ese orden, entre los alias de git de los usuarios; si ninguno está cargado, vale el usuario cuyo email de Ciudad Digital sea `autor_email`.
+- **No se repite:** el mismo `commit_sha` no genera otra tarea; la respuesta vuelve con `repetido: true`.
+- **Pendientes:** quedan guardados y se vuelven a procesar solos al vincular un repositorio o cargar un alias, o con `reprocesar`.
 
 ## Notificaciones
 

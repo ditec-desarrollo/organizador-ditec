@@ -9,3 +9,4 @@ process.env.DB_ORGANIZADOR = "organizador_pruebas";
 process.env.DB_CIU_DIGITAL = "ciudadano_digital";
 process.env.CORS_ORIGENES = "http://localhost:5173";
 process.env.EMAIL_ACTIVO = "false"; // las pruebas nunca mandan mails, aunque el .env local lo tenga activo
+process.env.INTEGRACION_API_KEY = "clave-de-integracion-solo-para-pruebas";

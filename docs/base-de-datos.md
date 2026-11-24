@@ -39,6 +39,11 @@ erDiagram
   usuario ||--o{ registro_actividad : "actor"
   proyecto ||--o{ registro_actividad : "refiere"
   tarea ||--o{ registro_actividad : "refiere"
+  proyecto ||--o{ proyecto_repositorio : "repositorios"
+  usuario ||--o{ usuario_alias_git : "firma como"
+  proyecto ||--o{ commit_recibido : "refiere"
+  usuario ||--o{ commit_recibido : "autor"
+  tarea ||--o{ commit_recibido : "generó / actualizó"
 
   tipo_usuario {
     int id_tusuario PK
@@ -184,6 +189,42 @@ erDiagram
     varchar descripcion
     datetime fecha_alta
   }
+  proyecto_repositorio {
+    int id_proyecto_repositorio PK
+    int id_proyecto FK
+    varchar repositorio UK "normalizado"
+    tinyint habilita
+    int id_usuario_alta FK
+    datetime fecha_alta
+    datetime fecha_modificacion
+  }
+  usuario_alias_git {
+    int id_usuario_alias_git PK
+    int id_usuario FK
+    varchar alias UK "nombre o email de git"
+    tinyint habilita
+    int id_usuario_alta FK
+    datetime fecha_alta
+    datetime fecha_modificacion
+  }
+  commit_recibido {
+    int id_commit_recibido PK
+    char commit_sha UK
+    varchar repositorio
+    varchar carpeta
+    varchar rama
+    varchar autor_nombre
+    varchar autor_email
+    varchar autor_alias
+    text mensaje
+    datetime fecha_commit
+    varchar resultado
+    int id_proyecto FK
+    int id_usuario FK
+    int id_tarea FK
+    datetime fecha_alta
+    datetime fecha_modificacion
+  }
   migracion {
     int id_migracion PK
     varchar archivo UK
@@ -284,6 +325,18 @@ Una fila por destinatario. `id_usuario_origen` es quién la provocó (`NULL` = e
 
 Bitácora general, solo inserciones. Alimenta la "actividad reciente" del panel y la pestaña Actividad de cada proyecto. `accion` es un código (`TAREA_CREADA`, `PROYECTO_EDITADO`…) y `descripcion` el texto listo para mostrar después del nombre de quien lo hizo.
 
+### `proyecto_repositorio`
+
+Repositorios de git de cada proyecto (migración `004`): dice a qué proyecto va un commit. `repositorio` se guarda normalizado ([`back/utils/repositorio.js`](../back/utils/repositorio.js)): `github.com/ditec-desarrollo/gaf-backend`, o el nombre de la carpeta si el repo no tiene remoto. Es clave única: un repositorio va a un solo proyecto, y un proyecto puede tener varios. Al desvincular queda `habilita = 0`; si se lo vuelve a vincular (a ese proyecto o a otro) se reutiliza la fila.
+
+### `usuario_alias_git`
+
+Con qué nombre o email firma sus commits cada usuario, en minúsculas. Clave única `alias`: un alias es de un solo usuario. Lo carga el administrador.
+
+### `commit_recibido`
+
+Una fila por commit que avisó el hook de Claude Code. **No se borra.** `commit_sha` es único: es lo que impide que un reenvío genere otra tarea. `resultado` dice qué se hizo (`TAREA_CREADA`, `TAREA_ACTUALIZADA`, `IGNORADO_MERGE`) o por qué quedó pendiente (`SIN_PROYECTO`, `SIN_USUARIO`, `PROYECTO_ARCHIVADO`); los códigos están en `RESULTADOS_COMMIT` de [`back/utils/constantes.js`](../back/utils/constantes.js). `id_proyecto`, `id_usuario` e `id_tarea` se completan a medida que se resuelven. Guarda los datos tal como llegaron (repositorio, carpeta, autor, mensaje) para poder reprocesar un pendiente sin volver a pedirlos.
+
 ### `migracion`
 
 La crea y mantiene el runner: anota qué archivos de `back/migrations` ya se aplicaron.
@@ -319,6 +372,8 @@ Además de las claves primarias y únicas:
 | `notificacion (id_usuario, leida, fecha_alta)` | Campana y lista de notificaciones. |
 | `notificacion (id_tarea, id_usuario, id_tnotificacion, fecha_referencia)` | Evitar avisos de vencimiento repetidos. |
 | `registro_actividad (fecha_alta)`, `(id_proyecto, fecha_alta)`, `(id_tarea, fecha_alta)` | Actividad reciente. |
+| `proyecto_repositorio (id_proyecto, habilita)`, `usuario_alias_git (id_usuario, habilita)` | Repositorios de un proyecto y alias de un usuario. |
+| `commit_recibido (resultado, fecha_alta)` | Commits pendientes. |
 
 ## Decisiones de modelado
 
@@ -333,6 +388,8 @@ Además de las claves primarias y únicas:
 9. **Varios responsables por tarea, en una tabla.** `tarea_responsable` reemplazó a la columna `tarea.id_usuario_responsable` (migración `003`, que pasó las asignaciones existentes). Se eliminó la columna para que no haya dos lugares que digan quién es responsable.
 10. **Responsable de proyecto como dato del integrante.** Un responsable siempre es integrante, así que es una columna de `proyecto_integrante` y no otra tabla.
 11. **Menciones en tabla propia.** Guardarlas aparte del texto permite notificar y resaltar la mención sin interpretar el comentario cada vez.
+12. **Los commits en tabla propia, no en `tarea`.** Un commit puede no generar tarea (merge, pendiente) y varios commits pueden avanzar la misma tarea, así que una columna `commit_sha` en `tarea` no alcanzaba. `commit_recibido` además deja registro de lo que no se pudo asignar, para resolverlo después.
+13. **Alias de git cargados a mano.** El autor de un commit es un nombre y un email libres que cada uno configura en su máquina (y una persona suele tener varios): no hay forma segura de deducir de quién es. Por eso se cargan por usuario, y solo los carga el administrador.
 
 ## Migraciones
 

@@ -1,7 +1,7 @@
 // Prueba de integración contra la base real (la de back/.env). Recorre el flujo completo:
 // usuarios, proyectos, integrantes y responsables, tareas con varios responsables, permisos por rol,
 // seguimiento e historial, tablero (mover y reordenar), comentarios y menciones, notificaciones,
-// panel y la API por HTTP.
+// panel, la API por HTTP y la integración con git (commits que generan tareas).
 //
 //   npm run test:integracion
 //
@@ -24,10 +24,14 @@ import * as tareasService from "../services/tareasService.js";
 import * as usuariosService from "../services/usuariosService.js";
 import * as notificacionesService from "../services/notificacionesService.js";
 import * as dashboardService from "../services/dashboardService.js";
-import { ESTADOS_PROYECTO, ESTADOS_TAREA, PRIORIDADES, ROLES, TIPOS_ACTUALIZACION, TIPOS_NOTIFICACION } from "../utils/constantes.js";
+import * as integracionesService from "../services/integracionesService.js";
+import { ESTADOS_PROYECTO, ESTADOS_TAREA, PRIORIDADES, RESULTADOS_COMMIT, ROLES, TIPOS_ACTUALIZACION, TIPOS_NOTIFICACION } from "../utils/constantes.js";
 
 // Tablas que la prueba ensucia, en el orden en que hay que vaciarlas (hijas antes que padres).
 const TABLAS = [
+  "commit_recibido",
+  "usuario_alias_git",
+  "proyecto_repositorio",
   "registro_actividad",
   "notificacion",
   "tarea_comentario_mencion",
@@ -466,7 +470,7 @@ const probarServicios = async () => {
     assert.equal((await proyectosService.listar(admin, {})).length, 1);
   });
 
-  return { admin, colaborador, ajeno, proyecto, tareaA };
+  return { admin, supervisor, colaborador, ajeno, proyecto, tareaA };
 };
 
 // La misma API que usa el front, por HTTP y con un token firmado como los de Ciudad Digital.
@@ -555,6 +559,170 @@ const probarApi = async ({ admin, colaborador, ajeno, proyecto, tareaA }) => {
   }
 };
 
+// Integración con git: lo que hace el back con cada commit que avisa el hook de Claude Code.
+// Corre al final para no cambiar las cantidades que verifican los pasos anteriores.
+const probarIntegracionConGit = async ({ admin, supervisor, colaborador, proyecto, tareaA }) => {
+  const REPO = "github.com/ditec-desarrollo/repo-de-prueba";
+  const sha = (numero) => String(numero).padStart(40, "0");
+  // Lo mismo que deja pasar validations/integracionesValidation.js.
+  const commit = (numero, extra = {}) => ({
+    commit_sha: sha(numero),
+    repositorio: REPO,
+    carpeta: "repo-de-prueba",
+    rama: "dev",
+    autor_nombre: "Colaborador Prueba",
+    autor_email: "colaborador@prueba.test",
+    autor_alias: null,
+    mensaje: `Commit de prueba ${numero}`,
+    fecha_commit: `${hoy} 10:00:00`,
+    es_merge: 0,
+    ...extra,
+  });
+  const anotado = async (numero) => (await integracionesService.listarCommits({ cantidad: 200 })).find((c) => c.commit_sha === sha(numero));
+  let repositorios;
+
+  await paso("commits: un merge se ignora y un repositorio sin vincular queda pendiente", async () => {
+    const sinProyecto = await integracionesService.recibirCommit(commit(1));
+    assert.equal(sinProyecto.resultado, RESULTADOS_COMMIT.SIN_PROYECTO);
+    assert.equal(sinProyecto.pendiente, true);
+    assert.equal(sinProyecto.id_tarea, null);
+    const merge = await integracionesService.recibirCommit(commit(2, { mensaje: "Merge branch 'dev' into main" }));
+    assert.equal(merge.resultado, RESULTADOS_COMMIT.IGNORADO_MERGE);
+    assert.equal(merge.pendiente, false);
+    assert.equal((await integracionesService.listarCommits({ solo_pendientes: 1 })).length, 1);
+  });
+
+  await paso("repositorios: los vincula quien gestiona el proyecto, sin duplicados, y se reprocesa lo pendiente", async () => {
+    await falla(403, integracionesService.vincularRepositorio(colaborador, proyecto.id_proyecto, REPO));
+    repositorios = await integracionesService.vincularRepositorio(supervisor, proyecto.id_proyecto, REPO);
+    assert.deepEqual(repositorios.map((r) => r.repositorio), [REPO]);
+    await falla(409, integracionesService.vincularRepositorio(supervisor, proyecto.id_proyecto, REPO));
+    assert.equal((await proyectosService.obtener(supervisor, proyecto.id_proyecto)).repositorios.length, 1);
+    // El commit 1 ya tiene proyecto; ahora le falta saber de quién es.
+    const pendiente = await anotado(1);
+    assert.equal(pendiente.resultado, RESULTADOS_COMMIT.SIN_USUARIO);
+    assert.equal(pendiente.id_proyecto, proyecto.id_proyecto);
+  });
+
+  await paso("alias de git: al cargarlo, el commit pendiente pasa a ser una tarea finalizada de su autor", async () => {
+    const alias = await integracionesService.agregarAlias(admin, colaborador.id_usuario, "colaborador@prueba.test");
+    assert.deepEqual(alias.map((a) => a.alias), ["colaborador@prueba.test"]);
+    await falla(409, integracionesService.agregarAlias(admin, supervisor.id_usuario, "colaborador@prueba.test"));
+    await falla(404, integracionesService.agregarAlias(admin, 999999, "nadie@prueba.test"));
+
+    const resuelto = await anotado(1);
+    assert.equal(resuelto.resultado, RESULTADOS_COMMIT.TAREA_CREADA);
+    assert.equal(resuelto.id_usuario, colaborador.id_usuario);
+    assert.equal(resuelto.titulo_tarea, "Commit de prueba 1");
+    const tarea = await tareasService.obtener(admin, resuelto.id_tarea);
+    assert.equal(tarea.id_etarea, ESTADOS_TAREA.FINALIZADA);
+    assert.equal(tarea.porcentaje_avance, 100);
+    assert.ok(tarea.fecha_finalizacion, "una tarea que nace finalizada tiene fecha de finalización");
+    assert.equal(tarea.fecha_inicio, hoy);
+    assert.equal(tarea.id_usuario_alta, colaborador.id_usuario);
+    assert.deepEqual(tarea.responsables.map((r) => r.id_usuario), [colaborador.id_usuario]);
+    assert.ok(tarea.descripcion.includes(`Commit 0000000 · ${REPO} · rama dev`));
+  });
+
+  await paso("commits: reenviar el mismo commit no genera otra tarea", async () => {
+    const antes = (await tareasService.listar(admin, { id_proyecto: proyecto.id_proyecto })).length;
+    const repetido = await integracionesService.recibirCommit(commit(1));
+    assert.equal(repetido.repetido, true);
+    assert.equal(repetido.resultado, RESULTADOS_COMMIT.TAREA_CREADA);
+    assert.equal(repetido.id_tarea, (await anotado(1)).id_tarea);
+    assert.equal((await tareasService.listar(admin, { id_proyecto: proyecto.id_proyecto })).length, antes);
+  });
+
+  await paso('commits: "tarea #N" registra una novedad en esa tarea; si no existe, crea una nueva', async () => {
+    await integracionesService.agregarAlias(admin, supervisor.id_usuario, "supervisor prueba");
+    // El nombre con el que firma git se compara sin mayúsculas ni espacios de más.
+    const deSupervisor = { autor_nombre: "Supervisor  PRUEBA", autor_email: null };
+    const antes = (await tareasService.listarActualizaciones(admin, tareaA.id_tarea)).length;
+
+    const avance = await integracionesService.recibirCommit(commit(3, { ...deSupervisor, mensaje: `validaciones listas (tarea #${tareaA.id_tarea})` }));
+    assert.equal(avance.resultado, RESULTADOS_COMMIT.TAREA_ACTUALIZADA);
+    assert.equal(avance.id_tarea, tareaA.id_tarea);
+    const historial = await tareasService.listarActualizaciones(admin, tareaA.id_tarea);
+    assert.equal(historial.length, antes + 1);
+    assert.ok(historial[0].comentario.includes("validaciones listas"));
+    assert.ok(historial[0].comentario.includes("Commit 0000000"));
+
+    const sinTarea = await integracionesService.recibirCommit(commit(4, { ...deSupervisor, mensaje: "otra cosa (tarea #999999)" }));
+    assert.equal(sinTarea.resultado, RESULTADOS_COMMIT.TAREA_CREADA);
+    assert.notEqual(sinTarea.id_tarea, 999999);
+  });
+
+  await paso("commits: la identidad fija de la máquina gana, y un autor que no era integrante se suma al proyecto", async () => {
+    await usuariosRepository.crear({ id_persona: -5, id_tusuario: ROLES.COLABORADOR, id_usuario_alta: null });
+    const externo = await usuariosRepository.buscarPorPersona(-5);
+    await integracionesService.agregarAlias(admin, externo.id_usuario, "externo");
+    assert.equal(await proyectosRepository.esIntegrante(proyecto.id_proyecto, externo.id_usuario), false);
+
+    // Firma git como el colaborador, pero la máquina dice que es "externo".
+    const creado = await integracionesService.recibirCommit(commit(5, { autor_alias: "externo" }));
+    assert.equal(creado.resultado, RESULTADOS_COMMIT.TAREA_CREADA);
+    assert.equal((await anotado(5)).id_usuario, externo.id_usuario);
+    assert.equal(await proyectosRepository.esIntegrante(proyecto.id_proyecto, externo.id_usuario), true);
+
+    const alias = await integracionesService.listarAlias(externo.id_usuario);
+    assert.deepEqual(await integracionesService.quitarAlias(admin, externo.id_usuario, alias[0].id_usuario_alias_git), []);
+    await falla(404, integracionesService.quitarAlias(admin, externo.id_usuario, alias[0].id_usuario_alias_git));
+  });
+
+  await paso("commits: en un proyecto archivado esperan, y al desvincular el repositorio dejan de entrar", async () => {
+    await proyectosService.archivar(supervisor, proyecto.id_proyecto, 1);
+    const archivado = await integracionesService.recibirCommit(commit(6));
+    assert.equal(archivado.resultado, RESULTADOS_COMMIT.PROYECTO_ARCHIVADO);
+    assert.equal(archivado.pendiente, true);
+    await proyectosService.archivar(supervisor, proyecto.id_proyecto, 0);
+    const conteo = await integracionesService.reprocesarPendientes();
+    assert.deepEqual(conteo, { revisados: 1, tareas_creadas: 1, tareas_actualizadas: 0, siguen_pendientes: 0, con_error: 0 });
+
+    await falla(404, integracionesService.desvincularRepositorio(supervisor, proyecto.id_proyecto, 999999));
+    assert.deepEqual(await integracionesService.desvincularRepositorio(supervisor, proyecto.id_proyecto, repositorios[0].id_proyecto_repositorio), []);
+    assert.equal((await integracionesService.recibirCommit(commit(7))).resultado, RESULTADOS_COMMIT.SIN_PROYECTO);
+    // Sin la URL vinculada, vale el nombre de la carpeta; y al vincular se resuelve el que esperaba.
+    repositorios = await integracionesService.vincularRepositorio(supervisor, proyecto.id_proyecto, "repo-de-prueba");
+    assert.equal((await anotado(7)).resultado, RESULTADOS_COMMIT.TAREA_CREADA);
+    // Volver a vincular la URL reutiliza la fila que se había deshabilitado.
+    repositorios = await integracionesService.vincularRepositorio(supervisor, proyecto.id_proyecto, REPO);
+    assert.equal(repositorios.length, 2);
+  });
+
+  await paso("HTTP: consultar y reprocesar commits es solo del administrador; la entrada pide la clave", async () => {
+    const servidor = await new Promise((resolve) => {
+      const s = app.listen(0, "127.0.0.1", () => resolve(s));
+    });
+    const base = `http://127.0.0.1:${servidor.address().port}`;
+    const con = (usuario) => ({ Authorization: jwt.sign({ id: usuario.id_persona }, env.jwtSecretKey, { expiresIn: "5m" }) });
+    try {
+      assert.equal((await fetch(`${base}/integraciones/commits`, { headers: con(colaborador) })).status, 403);
+      const lista = await fetch(`${base}/integraciones/commits?solo_pendientes=1`, { headers: con(admin) });
+      assert.equal(lista.status, 200);
+      assert.deepEqual(await lista.json(), []);
+      assert.equal((await fetch(`${base}/integraciones/commits/reprocesar`, { method: "POST", headers: con(admin) })).status, 200);
+      const repos = await fetch(`${base}/proyectos/${proyecto.id_proyecto}/repositorios`, { headers: con(colaborador) });
+      assert.equal((await repos.json()).length, 2);
+
+      // Sin clave: 401 si la integración está configurada en el .env, 503 si está apagada.
+      const sinClave = await fetch(`${base}/integraciones/commits`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      assert.equal(sinClave.status, env.integracionApiKey ? 401 : 503);
+      if (env.integracionApiKey) {
+        const cuerpo = { ...commit(8), fecha: `${hoy}T10:00:00-03:00`, repositorio: `https://${REPO}.git` };
+        const creado = await fetch(`${base}/integraciones/commits`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Api-Key": env.integracionApiKey },
+          body: JSON.stringify(cuerpo),
+        });
+        assert.equal(creado.status, 201);
+        assert.equal((await creado.json()).resultado, RESULTADOS_COMMIT.TAREA_CREADA);
+      }
+    } finally {
+      await new Promise((resolve) => servidor.close(resolve));
+    }
+  });
+};
+
 const principal = async () => {
   console.log(`Prueba de integración sobre ${env.db.database} en ${env.db.host}:${env.db.port}\n`);
   await exigirBaseVacia();
@@ -562,6 +730,7 @@ const principal = async () => {
   try {
     const contexto = await probarServicios();
     await probarApi(contexto);
+    await probarIntegracionConGit(contexto);
     console.log(`\n${pasos} pasos correctos.`);
   } finally {
     await limpiar();

@@ -12,6 +12,7 @@ import Tareas from "./pages/Tareas";
 import Historial from "./pages/Historial";
 import Notificaciones from "./pages/Notificaciones";
 import Usuarios from "./pages/Usuarios";
+import Commits from "./pages/Commits";
 import NoEncontrada from "./pages/NoEncontrada";
 
 // Ciudad Digital abre la app con ?auth=<token> (igual que Movilidad y Mapa Interactivo).
@@ -47,6 +48,7 @@ const App = () => (
             </Route>
             <Route element={<PrivateRoute soloAdmin />}>
               <Route path="/usuarios" element={<Usuarios />} />
+              <Route path="/commits" element={<Commits />} />
             </Route>
           </Route>
         </Routes>

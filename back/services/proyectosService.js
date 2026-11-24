@@ -2,6 +2,7 @@ import { enTransaccion } from "../config/dbOrganizador.js";
 import * as proyectosRepository from "../repositories/proyectosRepository.js";
 import * as usuariosRepository from "../repositories/usuariosRepository.js";
 import * as actividadRepository from "../repositories/actividadRepository.js";
+import * as integracionesRepository from "../repositories/integracionesRepository.js";
 import { accesoAProyecto, exigirGestionDeProyecto, exigirProyectoActivo } from "./permisosService.js";
 import { conflicto, noEncontrado } from "../utils/customError.js";
 import { ACCIONES } from "../utils/constantes.js";
@@ -11,7 +12,8 @@ export const listar = (usuario, filtros) => proyectosRepository.listar(usuario, 
 export const obtener = async (usuario, id_proyecto) => {
   const { proyecto, puedeGestionar } = await accesoAProyecto(usuario, id_proyecto);
   const integrantes = await proyectosRepository.listarIntegrantes(id_proyecto);
-  return { ...proyecto, integrantes, puede_gestionar: puedeGestionar };
+  const repositorios = await integracionesRepository.listarRepositorios(id_proyecto);
+  return { ...proyecto, integrantes, repositorios, puede_gestionar: puedeGestionar };
 };
 
 // Quien crea el proyecto queda como integrante (así un supervisor ya lo puede gestionar) y como responsable.

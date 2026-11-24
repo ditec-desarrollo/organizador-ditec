@@ -59,7 +59,15 @@ export const env = {
   },
   // Dirección pública del front, para el botón del mail. Vacía = el mail sale sin botón.
   urlFront: opcional("URL_FRONT").replace(/\/+$/, ""),
+  // Clave que manda el hook de Claude Code en cada commit (POST /integraciones/commits).
+  // Vacía = la integración está apagada y esa ruta responde 503.
+  integracionApiKey: opcional("INTEGRACION_API_KEY"),
 };
+
+// Esa ruta no pide token de Ciudad Digital: la clave es lo único que la protege.
+if (env.integracionApiKey && env.integracionApiKey.length < 32) {
+  throw new Error("INTEGRACION_API_KEY tiene que tener al menos 32 caracteres (ver .env.example)");
+}
 
 if (env.email.activo && !env.email.password) {
   throw new Error("EMAIL_ACTIVO está en true pero falta PASSWORD_MAIL (ver .env.example)");

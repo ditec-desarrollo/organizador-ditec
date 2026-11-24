@@ -33,7 +33,7 @@ back/
 ├─ validations/        validación de body y query de cada recurso
 ├─ services/           reglas de negocio y permisos
 ├─ repositories/       todo el SQL
-├─ middlewares/        auth, verifyRole, manejoErrores
+├─ middlewares/        auth, verifyRole, claveDeIntegracion, manejoErrores
 ├─ jobs/               avisosDeVencimiento.js
 ├─ utils/              constantes, customError, validador
 ├─ migrations/         esquema versionado + migrar.js
@@ -58,6 +58,7 @@ Puntos a tener en cuenta:
 - **Transacciones.** Toda operación que escribe en más de una tabla (por ejemplo: tarea + historial + bitácora + notificación) usa `enTransaccion`, para que se guarde todo o nada.
 - **Seguimiento.** El estado y el avance de una tarea solo cambian por `aplicarSeguimiento` ([`services/tareasService.js`](../back/services/tareasService.js)), que en la misma transacción inserta la fila del historial. Así la tarea y su historial no pueden quedar desfasados.
 - **Conexiones.** Un único pool (`config/dbOrganizador.js`). Los nombres siguen los de la casa: `conectarDBOrganizador`, `liberarConexion`.
+- **Integración con git.** `POST /integraciones/commits` es la única ruta que escribe sin un usuario en sesión: la llama el hook de Claude Code ([`integraciones/claude-code`](../integraciones/claude-code/README.md)) con una clave (`INTEGRACION_API_KEY`) en vez del token. [`services/integracionesService.js`](../back/services/integracionesService.js) decide a qué proyecto y a qué usuario corresponde el commit y crea la tarea a nombre de esa persona con las mismas funciones que usa la pantalla (`insertarTarea`, `aplicarSeguimiento`), así que queda con su bitácora e historial como cualquier otra. Anotar el commit y crear la tarea van en una sola transacción.
 
 ### Seguridad
 
@@ -65,6 +66,7 @@ Puntos a tener en cuenta:
 |---|---|
 | Contraseñas | Las maneja Ciudad Digital (bcrypt). El Organizador no guarda ninguna. |
 | Token | Se verifica la firma y el vencimiento en cada pedido. |
+| Clave de integración | La entrada de commits no lleva token: exige `X-Api-Key` igual a `INTEGRACION_API_KEY` (mínimo 32 caracteres, comparada en tiempo constante). Sin esa variable la ruta está apagada (`503`). Con la clave solo se pueden avisar commits: no da acceso a ninguna otra ruta. |
 | Permisos | Se validan en el back en cada pedido; el front solo oculta lo que no corresponde. |
 | SQL Injection | Todas las consultas son parametrizadas (`execute` con `?`). Lo único que se interpola (orden, `LIMIT`, nombre de la base de Ciudad Digital) sale de listas fijas o de enteros acotados, nunca del texto que manda el cliente. |
 | Validación | Todo body y query pasa por `validations/` antes de llegar al service. |
@@ -111,6 +113,8 @@ front/src/
 | Validador propio (`utils/validador.js`) | `express-validator` | Son ~100 líneas, sin dependencia nueva, y devuelve los errores por campo que el front necesita. |
 | `@hello-pangea/dnd` | `@dnd-kit` | Está hecha para listas y tableros tipo Kanban y trae accesibilidad por teclado. Ninguna app de la casa tenía drag and drop. |
 | Notificaciones por consulta periódica | WebSockets | El front pregunta una vez por minuto cuántas hay sin leer. Alcanza para este uso y no suma infraestructura. |
+| Commits por hook de Claude Code + API | Insertar directo en la base desde cada máquina; o un webhook de GitHub | Por la API la tarea se crea con su orden, responsables, bitácora y avisos, y las credenciales de MySQL no salen del servidor. El hook avisa en el momento del commit y solo los que hace Claude Code, que es lo que se pidió; un webhook de la organización de GitHub podría llamar a la misma ruta si más adelante se quieren todos los pushes. |
+| Tarea finalizada por cada commit | Tarea pendiente o en progreso | Un commit describe trabajo ya hecho. Así no ensucia el tablero: se ve unos días en la columna Finalizada y después queda en el Historial. Para sumar avances a una tarea existente, el mensaje la nombra (`tarea #12`). |
 
 ## Producción
 

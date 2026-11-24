@@ -11,6 +11,7 @@ import {
   obtenerProyecto,
   quitarIntegrante,
 } from "../controllers/proyectosControllers.js";
+import { desvincularRepositorio, listarRepositorios, vincularRepositorio } from "../controllers/integracionesControllers.js";
 
 const router = Router();
 
@@ -25,5 +26,10 @@ router.get("/:id_proyecto/integrantes", listarIntegrantes);
 router.post("/:id_proyecto/integrantes", soloGestores, agregarIntegrante);
 router.patch("/:id_proyecto/integrantes/:id_usuario", soloGestores, marcarResponsable);
 router.delete("/:id_proyecto/integrantes/:id_usuario", soloGestores, quitarIntegrante);
+
+// Repositorios de git del proyecto: los commits de esos repos generan tareas acá.
+router.get("/:id_proyecto/repositorios", listarRepositorios);
+router.post("/:id_proyecto/repositorios", soloGestores, vincularRepositorio);
+router.delete("/:id_proyecto/repositorios/:id_proyecto_repositorio", soloGestores, desvincularRepositorio);
 
 export default router;
