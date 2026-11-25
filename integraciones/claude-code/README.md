@@ -26,6 +26,7 @@ El hook solo se dispara con los commits que hace Claude Code. Un commit hecho a 
    ```
 
 3. Reiniciar el back. Sin esa variable la ruta responde `503` y no entra ningún commit.
+4. Si el back sirve HTTPS, `HTTPS_CERT` tiene que apuntar al certificado **con la cadena completa** (*fullchain*: el del sitio y el intermedio). Con el certificado solo, los navegadores entran igual, pero el hook corre en Node y lo rechaza (`UNABLE_TO_VERIFY_LEAF_SIGNATURE`): los commits quedan en cola sin llegar.
 
 ### 2. En el Organizador (por proyecto y por persona)
 
@@ -36,7 +37,9 @@ No hace falta tener todo cargado de entrada: un commit de un repositorio o de un
 
 ### 3. En cada máquina que usa Claude Code
 
-Hace falta Node 18 o superior. Desde la raíz de este repo:
+La forma más simple es pedírselo a Claude: abrir Claude Code en la carpeta de este repo y escribir *"Leé `integraciones/claude-code/GUIA-PARA-CLAUDE.md` y seguila"*. [Esa guía](GUIA-PARA-CLAUDE.md) lo lleva paso a paso: revisa la máquina y el back, define cómo se identifica a la persona, arma el comando de instalación, comprueba que quedó bien y hace la prueba con un commit.
+
+A mano: hace falta Node 18 o superior. Desde la raíz de este repo:
 
 ```bash
 node integraciones/claude-code/instalar.mjs --url https://estadisticas.smt.gob.ar:5066

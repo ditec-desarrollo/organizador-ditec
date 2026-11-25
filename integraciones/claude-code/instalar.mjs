@@ -100,7 +100,11 @@ const verificar = async (url, apiKey) => {
     if (prueba.status === 404) return "Ese back todavía no tiene la ruta /integraciones/commits: falta publicar la versión nueva.";
     return `El back respondió ${prueba.status} en /integraciones/commits.`;
   } catch (error) {
-    return `No se pudo conectar con ${url} (${error.cause?.code ?? error.cause?.errors?.[0]?.code ?? error.name}).`;
+    const motivo = error.cause?.code ?? error.cause?.errors?.[0]?.code ?? error.name;
+    if (motivo === "UNABLE_TO_VERIFY_LEAF_SIGNATURE") {
+      return `El back de ${url} entrega su certificado sin la cadena intermedia y Node no lo puede validar. Hay que corregirlo en el servidor: HTTPS_CERT tiene que apuntar al certificado con la cadena completa (fullchain).`;
+    }
+    return `No se pudo conectar con ${url} (${motivo}).`;
   }
 };
 
