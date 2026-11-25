@@ -13,6 +13,7 @@ Aplicación web interna de la Dirección de Innovación Tecnológica para organi
 - **Notificaciones internas:** tarea asignada, modificada, comentada, próxima a vencer o con cambio de fecha, y menciones. Las menciones también se avisan por email.
 - **Panel principal** según el rol: tareas pendientes, en progreso, vencidas y próximas a vencer, avance de los proyectos y actividad reciente.
 - **Búsqueda y filtros** por proyecto, responsable, estado, prioridad y vencimiento.
+- **Commits que se cargan solos:** cada commit que hace Claude Code en un repositorio vinculado a un proyecto se registra como tarea de quien lo hizo. Ver [integraciones/claude-code](integraciones/claude-code/README.md).
 
 ## Roles
 

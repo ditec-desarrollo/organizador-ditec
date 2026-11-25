@@ -9,6 +9,7 @@ import {
   listarEtiquetables,
   listarUsuarios,
 } from "../controllers/usuariosControllers.js";
+import { agregarAlias, listarAlias, quitarAlias } from "../controllers/integracionesControllers.js";
 
 const router = Router();
 
@@ -24,5 +25,11 @@ router.get("/persona/:documento", soloAdmin, buscarPersona);
 router.get("/personas", soloAdmin, buscarPersonas);
 router.post("/", soloAdmin, crearUsuario);
 router.put("/:id_usuario", soloAdmin, actualizarUsuario);
+
+// Con qué nombre o email firma sus commits cada usuario (para saber de quién es cada commit).
+// Solo el administrador: cargarle a alguien el alias de otro le atribuiría su trabajo.
+router.get("/:id_usuario/alias-git", soloAdmin, listarAlias);
+router.post("/:id_usuario/alias-git", soloAdmin, agregarAlias);
+router.delete("/:id_usuario/alias-git/:id_usuario_alias_git", soloAdmin, quitarAlias);
 
 export default router;

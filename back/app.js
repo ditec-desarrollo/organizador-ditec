@@ -10,7 +10,10 @@ import usuariosRoutes from "./routes/usuariosRoutes.js";
 import proyectosRoutes from "./routes/proyectosRoutes.js";
 import tareasRoutes from "./routes/tareasRoutes.js";
 import notificacionesRoutes from "./routes/notificacionesRoutes.js";
+import integracionesRoutes from "./routes/integracionesRoutes.js";
+import claveDeIntegracion from "./middlewares/claveDeIntegracion.js";
 import { listarActividad, obtenerCatalogos, obtenerDashboard } from "./controllers/generalesControllers.js";
+import { recibirCommit } from "./controllers/integracionesControllers.js";
 
 const app = express();
 
@@ -31,12 +34,17 @@ app.use(
 app.use(morgan("dev"));
 app.use(express.json({ limit: "200kb" }));
 
-// Rutas públicas (sin token). Todo lo que no esté acá exige token de Ciudad Digital.
-const RUTAS_PUBLICAS = [["GET", /^\/salud\/?$/]];
+// Rutas sin token de Ciudad Digital. Todo lo que no esté acá lo exige.
+// La de commits no es abierta: la llama el hook de Claude Code y se protege con la clave de integración.
+const RUTAS_PUBLICAS = [
+  ["GET", /^\/salud\/?$/],
+  ["POST", /^\/integraciones\/commits\/?$/],
+];
 
 const esRutaPublica = (req) => RUTAS_PUBLICAS.some(([metodo, ruta]) => req.method === metodo && ruta.test(req.path));
 
 app.get("/salud", (req, res) => res.json({ ok: true }));
+app.post("/integraciones/commits", claveDeIntegracion, recibirCommit);
 
 app.use((req, res, next) => (esRutaPublica(req) ? next() : auth(req, res, next)));
 
@@ -48,6 +56,7 @@ app.get("/actividad", usuarioHabilitado, listarActividad);
 app.use("/proyectos", usuarioHabilitado, proyectosRoutes);
 app.use("/tareas", usuarioHabilitado, tareasRoutes);
 app.use("/notificaciones", usuarioHabilitado, notificacionesRoutes);
+app.use("/integraciones", usuarioHabilitado, integracionesRoutes);
 
 app.use(rutaNoEncontrada);
 app.use(manejoErrores);

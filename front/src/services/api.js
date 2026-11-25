@@ -27,6 +27,10 @@ export const usuariosApi = {
   buscarPersonas: (buscar) => get("/usuarios/personas", { buscar }),
   crear: (datos) => post("/usuarios", datos),
   actualizar: (id_usuario, datos) => put(`/usuarios/${id_usuario}`, datos),
+  // Con qué nombre o email firma sus commits (para atribuirle las tareas que generan).
+  aliasGit: (id_usuario) => get(`/usuarios/${id_usuario}/alias-git`),
+  agregarAliasGit: (id_usuario, alias) => post(`/usuarios/${id_usuario}/alias-git`, { alias }),
+  quitarAliasGit: (id_usuario, id_usuario_alias_git) => del(`/usuarios/${id_usuario}/alias-git/${id_usuario_alias_git}`),
 };
 
 export const proyectosApi = {
@@ -40,6 +44,10 @@ export const proyectosApi = {
   marcarResponsable: (id_proyecto, id_usuario, es_responsable) =>
     patch(`/proyectos/${id_proyecto}/integrantes/${id_usuario}`, { es_responsable }),
   quitarIntegrante: (id_proyecto, id_usuario) => del(`/proyectos/${id_proyecto}/integrantes/${id_usuario}`),
+  // Repositorios de git cuyos commits generan tareas en el proyecto.
+  vincularRepositorio: (id_proyecto, repositorio) => post(`/proyectos/${id_proyecto}/repositorios`, { repositorio }),
+  desvincularRepositorio: (id_proyecto, id_proyecto_repositorio) =>
+    del(`/proyectos/${id_proyecto}/repositorios/${id_proyecto_repositorio}`),
 };
 
 export const tareasApi = {
@@ -55,6 +63,13 @@ export const tareasApi = {
   // datos: { comentario, ids_mencionados }
   comentar: (id_tarea, datos) => post(`/tareas/${id_tarea}/comentarios`, datos),
   eliminarComentario: (id_tarea, id_tarea_comentario) => del(`/tareas/${id_tarea}/comentarios/${id_tarea_comentario}`),
+};
+
+// Commits que avisó el hook de Claude Code (solo administradores).
+export const integracionesApi = {
+  commits: (filtros) => get("/integraciones/commits", filtros),
+  // Vuelve a intentar con los pendientes: { revisados, tareas_creadas, tareas_actualizadas, siguen_pendientes, con_error }.
+  reprocesar: () => post("/integraciones/commits/reprocesar"),
 };
 
 export const notificacionesApi = {

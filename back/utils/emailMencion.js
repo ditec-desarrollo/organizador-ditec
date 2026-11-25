@@ -19,8 +19,9 @@ export const esEmailValido = (email) => typeof email === "string" && /^[^\s@<>,;
 
 export const armarEmailDeMencion = ({ autor, id_tarea, titulo, proyecto, comentario, urlFront }) => {
   const quien = autor?.trim() || "Alguien";
-  // El front abre el detalle de una tarea con ?tarea=<id> desde cualquier pantalla.
-  const enlace = urlFront ? `${urlFront}/#/home?tarea=${Number(id_tarea)}` : "";
+  // El front abre el detalle de una tarea con ?tarea=<id> desde cualquier pantalla,
+  // y con &solapa=comentarios lo abre directamente en los comentarios, donde está la mención.
+  const enlace = urlFront ? `${urlFront}/#/home?tarea=${Number(id_tarea)}&solapa=comentarios` : "";
 
   const asunto = enUnaLinea(`${quien} te mencionó en la tarea "${titulo}"`, 150);
 

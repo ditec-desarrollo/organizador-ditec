@@ -49,12 +49,17 @@ const ProveedorDatos = ({ children }) => {
   // El detalle de tarea se abre con ?tarea=<id> en la URL: funciona desde cualquier pantalla
   // y el link se puede compartir.
   const idTareaAbierta = Number(parametros.get("tarea")) || null;
+  // Con &solapa=<nombre> el detalle se abre directamente en esa solapa (las notificaciones y el mail
+  // de mención llevan a "comentarios"). Sin el parámetro, o con uno que no existe, abre en la primera.
+  const solapaTareaAbierta = parametros.get("solapa");
 
   const abrirTarea = useCallback(
-    (id_tarea) => {
+    (id_tarea, solapa) => {
       setParametros((actuales) => {
         const nuevos = new URLSearchParams(actuales);
         nuevos.set("tarea", id_tarea);
+        if (solapa) nuevos.set("solapa", solapa);
+        else nuevos.delete("solapa");
         return nuevos;
       });
     },
@@ -66,6 +71,7 @@ const ProveedorDatos = ({ children }) => {
       (actuales) => {
         const nuevos = new URLSearchParams(actuales);
         nuevos.delete("tarea");
+        nuevos.delete("solapa");
         return nuevos;
       },
       { replace: true },
@@ -73,8 +79,8 @@ const ProveedorDatos = ({ children }) => {
   }, [setParametros]);
 
   const valor = useMemo(
-    () => ({ catalogos, version, refrescar, noLeidas, setNoLeidas, idTareaAbierta, abrirTarea, cerrarTarea }),
-    [catalogos, version, refrescar, noLeidas, idTareaAbierta, abrirTarea, cerrarTarea],
+    () => ({ catalogos, version, refrescar, noLeidas, setNoLeidas, idTareaAbierta, solapaTareaAbierta, abrirTarea, cerrarTarea }),
+    [catalogos, version, refrescar, noLeidas, idTareaAbierta, solapaTareaAbierta, abrirTarea, cerrarTarea],
   );
 
   return <DatosContext.Provider value={valor}>{children}</DatosContext.Provider>;

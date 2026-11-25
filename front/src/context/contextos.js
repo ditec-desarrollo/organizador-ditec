@@ -11,6 +11,7 @@ export const useUsuario = () => useContext(UserContext);
 //   catalogos             -> estados, prioridades, roles (GET /catalogos)
 //   version / refrescar() -> las pantallas vuelven a pedir sus datos cuando algo cambió en otro lado
 //   noLeidas              -> cantidad de notificaciones sin leer
-//   abrirTarea(id)        -> abre el detalle de una tarea desde cualquier pantalla
+//   abrirTarea(id, solapa)-> abre el detalle de una tarea desde cualquier pantalla; `solapa` es opcional
+//                            ("seguimiento", "historial" o "comentarios") y elige en cuál se abre
 export const DatosContext = createContext(null);
 export const useDatos = () => useContext(DatosContext);

@@ -19,6 +19,7 @@ import { avisarError, avisarExito, erroresDeCampo, mensajeDeError } from "../../
 import { aOpciones } from "../../utils/opciones";
 import { ROLES } from "../../utils/permisos";
 import { CampoSelect, CampoTexto } from "../ui/Campos";
+import AliasGitUsuario from "./AliasGitUsuario";
 
 // Alta (sin `usuario`) o edición de un usuario del Organizador.
 // Las personas vienen de Ciudad Digital: en el alta se busca por N° de afiliado, nombre, apellido,
@@ -168,6 +169,8 @@ const FormularioUsuario = ({ usuario, onCerrar, onGuardado }) => {
                 label={habilitado ? "Habilitado" : "Deshabilitado (no puede entrar)"}
               />
             )}
+
+            {esEdicion && <AliasGitUsuario usuario={usuario} />}
           </div>
         </DialogContent>
         <DialogActions>

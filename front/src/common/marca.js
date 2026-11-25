@@ -7,6 +7,7 @@ import ChecklistRoundedIcon from "@mui/icons-material/ChecklistRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import GroupRoundedIcon from "@mui/icons-material/GroupRounded";
+import CommitRoundedIcon from "@mui/icons-material/CommitRounded";
 import { esAdmin } from "../utils/permisos";
 
 // Datos de marca de la app. En el header se ve: [isotipo] ORGANIZADOR
@@ -32,6 +33,12 @@ export const ITEMS_MENU = [
     ruta: "/usuarios",
     texto: "Usuarios",
     icono: createElement(GroupRoundedIcon),
+    visible: (sesion) => esAdmin(sesion?.usuario),
+  },
+  {
+    ruta: "/commits",
+    texto: "Commits",
+    icono: createElement(CommitRoundedIcon),
     visible: (sesion) => esAdmin(sesion?.usuario),
   },
 ];

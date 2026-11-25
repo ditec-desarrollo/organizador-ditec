@@ -10,6 +10,7 @@ export const useNotificaciones = () => {
   const navigate = useNavigate();
 
   // Marca como leída y lleva a lo que la notificación señala (la tarea o, si no hay, el proyecto).
+  // La tarea se abre directamente en la solapa Comentarios, que es donde está la conversación.
   const elegir = useCallback(
     async (notificacion) => {
       try {
@@ -21,7 +22,7 @@ export const useNotificaciones = () => {
       } catch (error) {
         avisarError(error);
       }
-      if (notificacion.id_tarea) abrirTarea(notificacion.id_tarea);
+      if (notificacion.id_tarea) abrirTarea(notificacion.id_tarea, "comentarios");
       else if (notificacion.id_proyecto) navigate(`/proyectos/${notificacion.id_proyecto}`);
     },
     [setNoLeidas, abrirTarea, refrescar, navigate],

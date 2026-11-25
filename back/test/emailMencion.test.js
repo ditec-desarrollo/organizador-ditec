@@ -19,8 +19,9 @@ test("email de mención: asunto, texto y botón al Organizador", () => {
   assert.equal(asunto, 'Ana Pérez te mencionó en la tarea "Migrar el servidor"');
   assert.match(texto, /proyecto "Infraestructura"/);
   assert.match(texto, /@Juan Gómez ¿lo ves hoy\?/);
-  assert.match(texto, /https:\/\/ejemplo\.gob\.ar\/organizador\/#\/home\?tarea=42/);
-  assert.match(html, /href="https:\/\/ejemplo\.gob\.ar\/organizador\/#\/home\?tarea=42"/);
+  // El enlace abre la tarea directamente en la solapa Comentarios (en el HTML, el & va escapado).
+  assert.match(texto, /https:\/\/ejemplo\.gob\.ar\/organizador\/#\/home\?tarea=42&solapa=comentarios(\s|$)/);
+  assert.match(html, /href="https:\/\/ejemplo\.gob\.ar\/organizador\/#\/home\?tarea=42&amp;solapa=comentarios"/);
 });
 
 test("email de mención: escapa el HTML del comentario y del título", () => {

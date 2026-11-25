@@ -8,6 +8,7 @@ import EncabezadoPagina from "../common/EncabezadoPagina";
 import TablaEsqueleto from "../components/Esqueletos/TablaEsqueleto";
 import FormularioProyecto from "../components/proyectos/FormularioProyecto";
 import IntegrantesProyecto from "../components/proyectos/IntegrantesProyecto";
+import RepositoriosProyecto from "../components/proyectos/RepositoriosProyecto";
 import Tablero from "../components/tablero/Tablero";
 import BotonNuevaTarea from "../components/tareas/BotonNuevaTarea";
 import FiltrosTareas from "../components/tareas/FiltrosTareas";
@@ -164,11 +165,13 @@ const ProyectoDetalle = () => {
                 <Tab value="tablero" label="Tablero" />
                 <Tab value="lista" label="Lista" />
                 <Tab value="integrantes" label={`Integrantes (${proyecto.integrantes.length})`} />
+                <Tab value="repositorios" label={`Repositorios (${proyecto.repositorios.length})`} />
                 <Tab value="actividad" label="Actividad" />
               </Tabs>
 
               {(pestana === "tablero" || pestana === "lista") && <TareasDelProyecto proyecto={proyecto} vista={pestana} />}
               {pestana === "integrantes" && <IntegrantesProyecto proyecto={proyecto} />}
+              {pestana === "repositorios" && <RepositoriosProyecto proyecto={proyecto} />}
               {pestana === "actividad" && <ActividadDelProyecto idProyecto={idProyecto} />}
 
               {editando && (

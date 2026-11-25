@@ -33,7 +33,7 @@ back/
 ├─ validations/        validación de body y query de cada recurso
 ├─ services/           reglas de negocio y permisos
 ├─ repositories/       todo el SQL
-├─ middlewares/        auth, verifyRole, manejoErrores
+├─ middlewares/        auth, verifyRole, claveDeIntegracion, manejoErrores
 ├─ jobs/               avisosDeVencimiento.js
 ├─ utils/              constantes, customError, validador
 ├─ migrations/         esquema versionado + migrar.js
@@ -58,6 +58,7 @@ Puntos a tener en cuenta:
 - **Transacciones.** Toda operación que escribe en más de una tabla (por ejemplo: tarea + historial + bitácora + notificación) usa `enTransaccion`, para que se guarde todo o nada.
 - **Seguimiento.** El estado y el avance de una tarea solo cambian por `aplicarSeguimiento` ([`services/tareasService.js`](../back/services/tareasService.js)), que en la misma transacción inserta la fila del historial. Así la tarea y su historial no pueden quedar desfasados.
 - **Conexiones.** Un único pool (`config/dbOrganizador.js`). Los nombres siguen los de la casa: `conectarDBOrganizador`, `liberarConexion`.
+- **Integración con git.** `POST /integraciones/commits` es la única ruta que escribe sin un usuario en sesión: la llama el hook de Claude Code ([`integraciones/claude-code`](../integraciones/claude-code/README.md)) con una clave (`INTEGRACION_API_KEY`) en vez del token. [`services/integracionesService.js`](../back/services/integracionesService.js) decide a qué proyecto y a qué usuario corresponde el commit y crea la tarea a nombre de esa persona con las mismas funciones que usa la pantalla (`insertarTarea`, `aplicarSeguimiento`), así que queda con su bitácora e historial como cualquier otra. Anotar el commit y crear la tarea van en una sola transacción.
 
 ### Seguridad
 
@@ -65,6 +66,7 @@ Puntos a tener en cuenta:
 |---|---|
 | Contraseñas | Las maneja Ciudad Digital (bcrypt). El Organizador no guarda ninguna. |
 | Token | Se verifica la firma y el vencimiento en cada pedido. |
+| Clave de integración | La entrada de commits no lleva token: exige `X-Api-Key` igual a `INTEGRACION_API_KEY` (mínimo 32 caracteres, comparada en tiempo constante). Sin esa variable la ruta está apagada (`503`). Con la clave solo se pueden avisar commits: no da acceso a ninguna otra ruta. |
 | Permisos | Se validan en el back en cada pedido; el front solo oculta lo que no corresponde. |
 | SQL Injection | Todas las consultas son parametrizadas (`execute` con `?`). Lo único que se interpola (orden, `LIMIT`, nombre de la base de Ciudad Digital) sale de listas fijas o de enteros acotados, nunca del texto que manda el cliente. |
 | Validación | Todo body y query pasa por `validations/` antes de llegar al service. |
@@ -93,7 +95,7 @@ front/src/
 
 - **Diseño.** Estilo "Ciudad Digital" del repo UX-UI. `theme/`, `styles/ciudadDigital.css`, `common/` y `components/Esqueletos/` son las plantillas de ese repo; lo único adaptado es `marca.js` (marca y menú) y una prop `acciones` en `NavBar.jsx` para la campana. Los estilos propios están en `styles/organizador.css` y solo usan los tokens `--cd-*`, así que todo responde al modo claro y oscuro.
 - **Datos.** Cada pantalla pide sus datos con `useConsulta`, que resuelve carga, error y recarga. Cuando algo cambia (se movió una tarjeta, se guardó un formulario) se llama a `refrescar()` y todas las consultas en pantalla se vuelven a pedir.
-- **Detalle de tarea.** Se abre con `?tarea=<id>` en la URL, así funciona desde cualquier pantalla y el link se puede compartir.
+- **Detalle de tarea.** Se abre con `?tarea=<id>` en la URL, así funciona desde cualquier pantalla y el link se puede compartir. Con `&solapa=comentarios` (o `historial`) se abre directamente en esa solapa: así lo hacen las notificaciones y el botón del mail de mención.
 - **Tablero e historial.** El tablero pide las tareas con `tablero=1`: el back no devuelve las finalizadas hace más de `DIAS_FINALIZADAS_EN_TABLERO` días (7 por defecto). Es solo un filtro: la tarea no cambia de estado ni se archiva, y se sigue viendo en la lista de Tareas y en la pantalla Historial, que muestra todas las finalizadas con filtros por proyecto, persona y mes.
 - **Arrastrar y soltar.** `@hello-pangea/dnd`. Al soltar una tarjeta se actualiza la pantalla al instante y se guarda en la base; si el back lo rechaza, la tarjeta vuelve a su lugar y se muestra el motivo.
 - **Validación.** Los formularios validan antes de enviar con las mismas reglas que el back, y muestran en cada campo los errores que el back devuelva.
@@ -111,6 +113,8 @@ front/src/
 | Validador propio (`utils/validador.js`) | `express-validator` | Son ~100 líneas, sin dependencia nueva, y devuelve los errores por campo que el front necesita. |
 | `@hello-pangea/dnd` | `@dnd-kit` | Está hecha para listas y tableros tipo Kanban y trae accesibilidad por teclado. Ninguna app de la casa tenía drag and drop. |
 | Notificaciones por consulta periódica | WebSockets | El front pregunta una vez por minuto cuántas hay sin leer. Alcanza para este uso y no suma infraestructura. |
+| Commits por hook de Claude Code + API | Insertar directo en la base desde cada máquina; o un webhook de GitHub | Por la API la tarea se crea con su orden, responsables, bitácora y avisos, y las credenciales de MySQL no salen del servidor. El hook avisa en el momento del commit y solo los que hace Claude Code, que es lo que se pidió; un webhook de la organización de GitHub podría llamar a la misma ruta si más adelante se quieren todos los pushes. |
+| Tarea finalizada por cada commit | Tarea pendiente o en progreso | Un commit describe trabajo ya hecho. Así no ensucia el tablero: se ve unos días en la columna Finalizada y después queda en el Historial. Para sumar avances a una tarea existente, el mensaje la nombra (`tarea #12`). |
 
 ## Producción
 

@@ -8,7 +8,7 @@ import { useDatos, useUsuario } from "../context/contextos";
 // Además del header, monta el detalle de tarea: así se puede abrir desde cualquier pantalla (?tarea=<id>).
 const LayoutPrincipal = () => {
   const { usuario, autenticado, cargando, tieneAcceso, nombreCompleto, cerrarSesion } = useUsuario();
-  const { idTareaAbierta, cerrarTarea } = useDatos();
+  const { idTareaAbierta, solapaTareaAbierta, cerrarTarea } = useDatos();
   const navigate = useNavigate();
 
   return (
@@ -22,7 +22,16 @@ const LayoutPrincipal = () => {
         onCerrarSesion={cerrarSesion}
       />
       <Outlet />
-      {tieneAcceso && idTareaAbierta && <DetalleTarea key={idTareaAbierta} idTarea={idTareaAbierta} onCerrar={cerrarTarea} />}
+      {tieneAcceso && idTareaAbierta && (
+        // La solapa entra en la key: si con una tarea abierta llega una notificación de esa misma tarea,
+        // el detalle se vuelve a montar y muestra los comentarios.
+        <DetalleTarea
+          key={`${idTareaAbierta}-${solapaTareaAbierta ?? ""}`}
+          idTarea={idTareaAbierta}
+          solapaInicial={solapaTareaAbierta}
+          onCerrar={cerrarTarea}
+        />
+      )}
     </>
   );
 };
